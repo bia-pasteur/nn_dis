@@ -21,7 +21,7 @@ from tqdm import tqdm
 
 import network
 from config import TrainConfig
-from scripts.dataset import TractionDataset
+from scripts.dataset import TractionDataset, get_transforms
 
 
 def update_log(log_dict: dict, update: dict) -> None:
@@ -169,7 +169,9 @@ def main(train_config: TrainConfig):
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
 
     # Create dataloader
-    train_dataset = TractionDataset(Path(train_config.train_data))
+    train_dataset = TractionDataset(
+        Path(train_config.train_data), transform=get_transforms()
+    )
     train_loader = DataLoader(
         train_dataset,
         batch_size=train_config.batch_size,
@@ -189,7 +191,7 @@ def main(train_config: TrainConfig):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Training loop
-    print(f"Training for {train_config.epochs} epochs...")
+    # print(f"Training for {train_config.epochs} epochs...")
 
     logs_train, logs_validation = {}, {}
     best_loss = float("inf")
@@ -228,10 +230,10 @@ def main(train_config: TrainConfig):
             output_dir / "logs_validation.csv"
         )
 
-        avg_loss = epoch_log_train["loss"]
+        avg_loss = epoch_log_validation["loss"]
         # Print progress
-        if (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch + 1}/{train_config.epochs}, Loss: {avg_loss:.6f}")
+        # if (epoch + 1) % 10 == 0:
+        #     print(f"Epoch {epoch + 1}/{train_config.epochs}, Loss: {avg_loss:.6f}")
 
         # Save periodic checkpoints
         if (epoch + 1) % train_config.save_every == 0:

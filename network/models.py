@@ -317,16 +317,16 @@ class NetworkPairwiseAnisotropic(nn.Module):
 
         skips = []
         for enc_block in self.encoder:
-            skips.append(x)  # ← identique à NetworkPairwise
+            skips.append(x)  # identique à NetworkPairwise
             x = enc_block(x)
 
         x = self.bottleneck(x)
 
         skips = list(reversed(skips))
         for i, dec_block in enumerate(self.decoder):
-            x = dec_block(x, skips[i])  # ← identique à NetworkPairwise
+            x = dec_block(x, skips[i])  # identique à NetworkPairwise
 
-        field = self.flow_head(x)
+        field = self.flow_head(x) * 10
 
         if return_warped_source:
             return field, self.transformer(source, field)
