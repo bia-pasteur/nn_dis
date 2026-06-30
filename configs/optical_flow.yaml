@@ -1,0 +1,48 @@
+
+optical_flow:
+  global_flow: False
+
+  fista:
+    num_iter: 300 # for synthetic elas exp : 300, for image 1 and 2: 300
+    num_warp: 7
+    alpha: 0.1 # for synthetic elas exp and image 1: 0.1, for image 2: 0.3
+    beta: 0.1 # for synthetic elas exp: 0.7, for image 1 and image 2: 0.8
+    eps: 0.000001
+    num_pyramid: 10
+    pyramid_downscale: 1.5
+    pyramid_min_size: 16
+    spacing: [1.0, 0.13, 0.13]
+
+  hs:
+    num_iter: 300 # for synthetic elas exp: 300, for image 1 and 2: 300
+    num_warp: 7
+    alpha: 0.1 # for synthetic elas exp and image 1: 0.1, for image 2: 0.3
+    eps: 0.00001
+    num_pyramid: 10
+    pyramid_downscale: 1.5
+    pyramid_min_size: 16
+    w: 1
+
+  farneback:
+    winSize: 5
+    pyrScale: 0.3
+    numLevels: 5
+    fastPyramids: True 
+    numIters: 3
+    polyN: 3
+    polySigma: 1
+    flags: 0
+
+  tvl1:
+    attachment: 25
+    tightness: 0.6
+    num_warp: 5 
+    num_iter: 150
+    tol: 0.0001 
+    prefilter: False
+
+  ilk:
+    radius: 4
+    num_warp: 7 
+    gaussian: True 
+    prefilter: True 
