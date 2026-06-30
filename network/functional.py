@@ -7,7 +7,7 @@ from typing import List, Literal, Tuple, Union
 import torch
 
 _MULTIDIM_REDUCTIONS = frozenset(
-    {"mean", "sum", "median", "amax", "amin", "std", "var", "var_mean"}
+    {"mean", "sum", "median", "amax", "amin", "std", "var", "var_mean", "weighted_mean"}
 )
 _SINGLEDIM_REDUCTIONS = frozenset({"argmin", "argmax"})
 _ALL_REDUCTIONS = _MULTIDIM_REDUCTIONS | _SINGLEDIM_REDUCTIONS
@@ -15,7 +15,7 @@ _ALL_REDUCTIONS = _MULTIDIM_REDUCTIONS | _SINGLEDIM_REDUCTIONS
 
 def reduce(
     tensor: torch.Tensor,
-    reduction: str = "mean",
+    reduction: str = "weighted_mean",
     dim: Union[int, Tuple[int, ...], None] = None,
     keepdims: bool = False,
     mask: torch.tensor = None,
@@ -49,6 +49,15 @@ def reduce(
 
         return masked_values.mean()
 
+    if reduction == "weighted_mean":
+        assert mask is not None
+        mask_bool = mask_bool.expand_as(tensor)
+        weight_map = torch.zeros_like(tensor)
+        weight_map[mask_bool] = 0.5 / torch.sum(mask_bool)
+        weight_map[~mask_bool] = 0.5 / (torch.sum(~mask_bool))
+
+        return torch.sum(tensor * weight_map)
+
     elif mask is not None:
         raise NotImplementedError
 
@@ -67,7 +76,7 @@ def mse(
     Compute mean squared error
     """
     return reduce(
-        tensor=mask * ((prediction - target) ** 2),
+        tensor=((prediction - target) ** 2),
         reduction=reduction,
         dim=reduction_dim,
         keepdims=keepdims,
