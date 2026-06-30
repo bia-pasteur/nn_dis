@@ -1,14 +1,14 @@
 train_config: 
-    output_dir: '/Users/josephinelahmani/Desktop/nn_dis/results' #'/pasteur/helix/projects/bia/jlahmani/nn_dis/results_lr1e-3_a_b_0.001_bs_20' #'/Users/josephinelahmani/Desktop/vxmorph/results'
-    epochs: 200
+    output_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/results/lr1e-4_a_b0_mask'
+    epochs: 400
     workers: 4
     batch_size: 20
-    lr: 1e-3
-    alpha_param: 0.001
-    beta_param: 0.001
+    lr: 1e-4
+    alpha_param: 0
+    beta_param: 0
     gpu: 0
     save_every: 10
-    features: [16, 32, 32, 32, 32]
+    features: [16, 32, 32, 64, 64]
     model_type: 'aniso'
-    train_data: '/Users/josephinelahmani/Desktop/data_deep/micro/test_train' #'/pasteur/helix/projects/bia/jlahmani/vxmorph/data/micro/train' #'/Users/josephinelahmani/Desktop/data_deep/micro/train'
-    val_data:  '/Users/josephinelahmani/Desktop/data_deep/micro/val'  #'/pasteur/helix/projects/bia/jlahmani/vxmorph/data/micro/val' #'/Users/josephinelahmani/Desktop/data_deep/micro/val' 
+    train_data: '/pasteur/helix/projects/bia/jlahmani/data/micro/train' 
+    val_data:  '/pasteur/helix/projects/bia/jlahmani/data/micro/val'
