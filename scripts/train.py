@@ -128,7 +128,8 @@ def epoch_(
 
 
 def main(train_config: TrainConfig):
-    """_summary_
+    """
+    Main entry for training
 
     Args:
         train_config (TrainConfig): _description_
