@@ -1,5 +1,5 @@
 train_config: 
-    output_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/results/lr1e-4_a_b0_mask_with_init'
+    output_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/results/lr1e-4_a_b0_mask_no_init'
     epochs: 400
     workers: 4
     batch_size: 20

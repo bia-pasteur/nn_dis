@@ -236,7 +236,7 @@ class NetworkPairwise(nn.Module):
         for i, dec_block in enumerate(self.decoder):
             x = dec_block(x, skips[i])
 
-        field = self.flow_head(x)
+        field = self.flow_head(x) * 100
 
         if return_warped_source:
             return field, self.transformer(source, field)
@@ -301,8 +301,8 @@ class NetworkPairwiseAnisotropic(nn.Module):
 
         self.flow_head = nn.Conv3d(in_ch, ndim, kernel_size=1)
 
-        nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-3)
-        nn.init.zeros_(self.flow_head.bias)
+        # nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-3)
+        # nn.init.zeros_(self.flow_head.bias)
 
         self.transformer = SpatialTransformer()
 
