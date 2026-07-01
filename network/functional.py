@@ -51,6 +51,7 @@ def reduce(
 
     if reduction == "weighted_mean":
         assert mask is not None
+        mask_bool = mask.to(tensor.device).bool()
         mask_bool = mask_bool.expand_as(tensor)
         weight_map = torch.zeros_like(tensor)
         weight_map[mask_bool] = 0.5 / torch.sum(mask_bool)
@@ -68,7 +69,7 @@ def mse(
     prediction: torch.Tensor,
     target: torch.Tensor,
     mask: torch.Tensor,
-    reduction: Union[str, None] = "mean",
+    reduction: Union[str, None] = "weighted_mean",
     reduction_dim: Union[int, Tuple[int, ...], None] = None,
     keepdims: bool = False,
 ) -> torch.Tensor:
@@ -80,6 +81,7 @@ def mse(
         reduction=reduction,
         dim=reduction_dim,
         keepdims=keepdims,
+        mask=mask,
     )
 
 
