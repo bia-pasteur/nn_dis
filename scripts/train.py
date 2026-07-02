@@ -9,7 +9,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from pathlib import Path
-from typing import Sequence
+from typing import Sequence, Union
 
 import jsonargparse
 import numpy as np
@@ -45,10 +45,12 @@ def epoch_(
     optimizer: torch.optim.Optimizer,
     image_loss_fn: nn.Module,
     grad_loss_fn: nn.Module,
-    hessian_loss_fn,
+    hessian_loss_fn: nn.Module,
     loss_weights: Sequence[float],
     device: str = "cuda",
     training: bool = True,
+    weight_mask: Union[float, None] = 0.5,
+    reduce_log: bool = False,
 ) -> float:
     """
     Train for one epoch.
@@ -73,6 +75,7 @@ def epoch_(
     """
 
     log = {
+        "index": [],
         "loss": [],
         "loss_mse": [],
         "loss_grad": [],
@@ -87,9 +90,7 @@ def epoch_(
     else:
         model.eval()
 
-    total_loss = 0.0
-
-    for batch in iter(dataloader):
+    for idx, batch in enumerate(iter(dataloader)):
         if training:
             optimizer.zero_grad()
 
@@ -101,7 +102,13 @@ def epoch_(
         # Get the displacement and the warped source image from the model
         displacement, warped_source = model(source, target, return_warped_source=True)
 
-        img_loss = image_loss_fn(target, warped_source, mask)
+        img_loss = image_loss_fn(
+            warped_source,
+            target,
+            mask,
+            reduction="weighted_mean",
+            weight_mask=weight_mask,
+        )
         grad_loss = grad_loss_fn(displacement)
         hessian_loss = hessian_loss_fn(displacement)
 
@@ -115,8 +122,7 @@ def epoch_(
             loss.backward()
             optimizer.step()
 
-        total_loss += loss.item()
-
+        log["index"].append(idx)
         log["loss"].append(loss.item())
         log["loss_mse"].append(img_loss.item())
         log["loss_grad"].append(grad_loss.item())
@@ -124,7 +130,11 @@ def epoch_(
         log["max_dis"].append(np.max(np.abs(displacement.detach().cpu().numpy())))
         log["avg_dis"].append(np.mean(displacement.detach().cpu().numpy()))
 
-    return {k: np.mean(v) for k, v in log.items()}
+    return (
+        {k: np.mean(v) for k, v in log.items() if k != "index"}
+        if not reduce_log
+        else log
+    )
 
 
 def main(train_config: TrainConfig):

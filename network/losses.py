@@ -42,7 +42,8 @@ class MSE(nn.Module):
         prediction: torch.Tensor,
         target: torch.Tensor,
         mask: torch.Tensor,
-        reduction: Union[str, None] = "mean",
+        reduction: Union[str, None] = "weighted_mean",
+        weight_mask: Union[float, None] = 0.5,
         reduction_dim: Union[int, Tuple[int, ...], None] = None,
         keepdims: bool = False,
     ) -> torch.Tensor:
@@ -53,6 +54,7 @@ class MSE(nn.Module):
             reduction=reduction,
             reduction_dim=reduction_dim,
             keepdims=keepdims,
+            weight_mask=weight_mask,
         )
 
 

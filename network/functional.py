@@ -19,6 +19,7 @@ def reduce(
     dim: Union[int, Tuple[int, ...], None] = None,
     keepdims: bool = False,
     mask: torch.tensor = None,
+    weight_mask: Union[float, None] = 0.5,
 ) -> torch.Tensor:
     """
     Apply any torch reduction on a tensor,
@@ -54,8 +55,8 @@ def reduce(
         mask_bool = mask.to(tensor.device).bool()
         mask_bool = mask_bool.expand_as(tensor)
         weight_map = torch.zeros_like(tensor)
-        weight_map[mask_bool] = 0.5 / torch.sum(mask_bool)
-        weight_map[~mask_bool] = 0.5 / (torch.sum(~mask_bool))
+        weight_map[mask_bool] = weight_mask / torch.sum(mask_bool)
+        weight_map[~mask_bool] = (1 - weight_mask) / (torch.sum(~mask_bool))
 
         return torch.sum(tensor * weight_map)
 
@@ -72,6 +73,7 @@ def mse(
     reduction: Union[str, None] = "weighted_mean",
     reduction_dim: Union[int, Tuple[int, ...], None] = None,
     keepdims: bool = False,
+    weight_mask: Union[float, None] = 0.5,
 ) -> torch.Tensor:
     """
     Compute mean squared error
@@ -82,6 +84,7 @@ def mse(
         dim=reduction_dim,
         keepdims=keepdims,
         mask=mask,
+        weight_mask=weight_mask,
     )
 
 

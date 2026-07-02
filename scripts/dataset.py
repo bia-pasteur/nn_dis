@@ -79,8 +79,14 @@ class TractionDataset(Dataset):
         Dataset (_type_): _description_
     """
 
+    EXCLUDED_INDICES = [52, 77, 137, 196, 404, 437, 491, 528, 557]
+
     def __init__(self, folder: Path, transform: Optional[Callable] = None):
-        self.files = list(folder.glob("*.tiff"))
+        # self.files = list(folder.glob("*.tiff"))
+        all_files = sorted(folder.glob("*.tiff"))
+        self.files = [
+            f for i, f in enumerate(all_files) if i not in self.EXCLUDED_INDICES
+        ]
         self.folder = folder
 
         self.transform = transform
@@ -97,6 +103,7 @@ class TractionDataset(Dataset):
         return len(self.files)
 
     def __getitem__(self, index: int):
+
         img_path = self.files[index]
         img_raw = tifffile.imread(img_path)
 
@@ -129,4 +136,5 @@ class TractionDataset(Dataset):
             "source": subject.source.data,
             "target": subject.target.data,
             "mask": mask_2d,
+            "ind": index,
         }

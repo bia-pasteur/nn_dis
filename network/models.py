@@ -43,7 +43,7 @@ class SpatialTransformer(nn.Module):
 
         grid = grid.flip(
             dims=(1,)
-        )  # To have the x, y, z order in the displacement axes
+        )  # Convert from ij (z,y,x) to (x,y,z) convention for grid_sample
         grid = grid.permute(0, 2, 3, 4, 1)  # To have a (N, D, H, W, C) shape
 
         return F.grid_sample(
