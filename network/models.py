@@ -171,6 +171,7 @@ class NetworkPairwise(nn.Module):
         source_channels: int = 1,
         target_channels: int = 1,
         features: List[int] = [16, 32, 32],
+        flow_multiplier: float = 10,
         device: str = "cpu",
     ):
         super().__init__()
@@ -178,6 +179,7 @@ class NetworkPairwise(nn.Module):
         self.ndim = ndim
         self.device = device
         self._upsample_mode = "trilinear"
+        self.flow_multiplier = flow_multiplier
 
         in_channels = source_channels + target_channels
 
@@ -211,8 +213,8 @@ class NetworkPairwise(nn.Module):
 
         self.flow_head = nn.Conv3d(in_ch, ndim, kernel_size=1, padding_mode="reflect")
 
-        # nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-3)
-        # nn.init.zeros_(self.flow_head.bias)
+        nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-5)
+        nn.init.zeros_(self.flow_head.bias)
 
         self.transformer = SpatialTransformer()
 
@@ -236,7 +238,7 @@ class NetworkPairwise(nn.Module):
         for i, dec_block in enumerate(self.decoder):
             x = dec_block(x, skips[i])
 
-        field = self.flow_head(x) * 100
+        field = self.flow_head(x) * self.flow_multiplier
 
         if return_warped_source:
             return field, self.transformer(source, field)
@@ -257,12 +259,14 @@ class NetworkPairwiseAnisotropic(nn.Module):
         target_channels: int = 1,
         features: List[int] = [16, 32, 32, 64, 64],
         n_2d_levels: int = 2,
+        flow_multiplier: float = 10,
         device: str = "cpu",
     ):
         super().__init__()
 
         self.ndim = ndim
         self.device = device
+        self.flow_multiplier = flow_multiplier
 
         in_channels = source_channels + target_channels
 
@@ -301,8 +305,8 @@ class NetworkPairwiseAnisotropic(nn.Module):
 
         self.flow_head = nn.Conv3d(in_ch, ndim, kernel_size=1)
 
-        # nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-3)
-        # nn.init.zeros_(self.flow_head.bias)
+        nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-5)
+        nn.init.zeros_(self.flow_head.bias)
 
         self.transformer = SpatialTransformer()
 
@@ -317,16 +321,16 @@ class NetworkPairwiseAnisotropic(nn.Module):
 
         skips = []
         for enc_block in self.encoder:
-            skips.append(x)  # identique à NetworkPairwise
+            skips.append(x)
             x = enc_block(x)
 
         x = self.bottleneck(x)
 
         skips = list(reversed(skips))
         for i, dec_block in enumerate(self.decoder):
-            x = dec_block(x, skips[i])  # identique à NetworkPairwise
+            x = dec_block(x, skips[i])
 
-        field = self.flow_head(x) * 10
+        field = self.flow_head(x) * self.flow_multiplier
 
         if return_warped_source:
             return field, self.transformer(source, field)

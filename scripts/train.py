@@ -146,6 +146,7 @@ def main(train_config: TrainConfig):
             source_channels=1,
             target_channels=1,
             features=train_config.features,
+            flow_multiplier=train_config.flow_multiplier,
         ).to(device)
 
     elif train_config.model_type == "aniso":
@@ -154,6 +155,7 @@ def main(train_config: TrainConfig):
             source_channels=1,
             target_channels=1,
             features=train_config.features,
+            flow_multiplier=train_config.flow_multiplier,
         ).to(device)
 
     else:

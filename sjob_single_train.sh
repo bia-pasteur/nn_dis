@@ -16,7 +16,7 @@ QOS="gpu"
 MEM=64000
 CPUS=32
 
-LAUNCH_COMMAND="python scripts/train.py --config configs/train_config.yaml"
+LAUNCH_COMMAND="python scripts/train.py $@" # --config configs/train_config.yaml"
 
 echo $LAUNCH_COMMAND
 

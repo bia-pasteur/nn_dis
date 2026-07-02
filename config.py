@@ -27,6 +27,7 @@ class TrainConfig:
     gpu: int
     features: List[int]
     model_type: str
+    flow_multiplier: float
     save_every: int
     train_data: str
     val_data: str
