@@ -3,7 +3,7 @@
 
 # Configurable variables
 
-JOB_NAME=nn_dis_mask_lr_1em4_mse_solo
+JOB_NAME=nn_dis_mask
 
 DATETIME=$(date +"%y%m%d-%H%M%S")
 LOG_FILE="${DATETIME}_${JOB_NAME}"
