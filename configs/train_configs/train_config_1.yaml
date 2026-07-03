@@ -11,5 +11,5 @@ train_config:
     features: [16, 32, 32, 64, 64]
     flow_multiplier: 10
     model_type: 'aniso'
-    train_data: '/pasteur/helix/projects/bia/jlahmani/data/synthetic/train'
-    val_data:  '/pasteur/helix/projects/bia/jlahmani//data/synthetic/val'
+    train_data: '/pasteur/helix/projects/bia/jlahmani/data/micro/train'
+    val_data:  '/pasteur/helix/projects/bia/jlahmani//data/micro/val'
