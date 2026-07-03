@@ -2,7 +2,7 @@ train_config:
     output_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/results/train_1_synthetic'
     epochs: 400
     workers: 4
-    batch_size: 20
+    batch_size: 2
     lr: 1e-4
     alpha_param: 0
     beta_param: 0
