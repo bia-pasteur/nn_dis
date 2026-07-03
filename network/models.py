@@ -29,7 +29,7 @@ class SpatialTransformer(nn.Module):
 
         meshgrid = torch.stack(torch.meshgrid(*axes, indexing="ij"), dim=0).contiguous()
 
-        new_locs = meshgrid + displacement
+        new_locs = meshgrid - displacement
 
         sizes = torch.tensor(
             shape, dtype=displacement.dtype, device=displacement.device
@@ -213,7 +213,7 @@ class NetworkPairwise(nn.Module):
 
         self.flow_head = nn.Conv3d(in_ch, ndim, kernel_size=1, padding_mode="reflect")
 
-        nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-5)
+        nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-3)
         nn.init.zeros_(self.flow_head.bias)
 
         self.transformer = SpatialTransformer()
@@ -303,9 +303,9 @@ class NetworkPairwiseAnisotropic(nn.Module):
             )
             in_ch = out_ch
 
-        self.flow_head = nn.Conv3d(in_ch, ndim, kernel_size=1)
+        self.flow_head = nn.Conv3d(in_ch, ndim, kernel_size=1, padding_mode="reflect")
 
-        nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-5)
+        nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-3)
         nn.init.zeros_(self.flow_head.bias)
 
         self.transformer = SpatialTransformer()

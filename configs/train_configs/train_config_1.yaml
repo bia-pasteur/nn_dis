@@ -1,5 +1,5 @@
 train_config: 
-    output_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/results/train_1_synthetic'
+    output_dir: '/Users/josephinelahmani/helix_mount/results'
     epochs: 400
     workers: 4
     batch_size: 2
@@ -11,5 +11,5 @@ train_config:
     features: [16, 32, 32, 64, 64]
     flow_multiplier: 10
     model_type: 'aniso'
-    train_data: '/pasteur/helix/projects/bia/jlahmani/data/synthetic/train' 
-    val_data:  '/pasteur/helix/projects/bia/jlahmani/data/synthetic/val'
+    train_data: '/Users/josephinelahmani/helix_mount/data/synthetic/train'
+    val_data:  '/Users/josephinelahmani/helix_mount/data/synthetic/val'
