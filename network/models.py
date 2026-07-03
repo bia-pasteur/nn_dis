@@ -29,7 +29,7 @@ class SpatialTransformer(nn.Module):
 
         meshgrid = torch.stack(torch.meshgrid(*axes, indexing="ij"), dim=0).contiguous()
 
-        new_locs = meshgrid - displacement
+        new_locs = meshgrid + displacement
 
         sizes = torch.tensor(
             shape, dtype=displacement.dtype, device=displacement.device
