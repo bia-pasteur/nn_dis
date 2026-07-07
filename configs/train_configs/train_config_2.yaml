@@ -3,13 +3,13 @@ train_config:
     epochs: 400
     workers: 4
     batch_size: 10
-    lr: 1e-4
-    alpha_param: 0.01
-    beta_param: 0.01
+    lr: 5e-5
+    alpha_param: 0.001
+    beta_param: 0.001
     gpu: 0
     save_every: 100
     features: [16, 32, 32, 64, 64]
-    flow_multiplier: 10
+    flow_multiplier: 30
     model_type: 'aniso'
     train_data: '/pasteur/helix/projects/bia/jlahmani/data/micro/train' 
     val_data:  '/pasteur/helix/projects/bia/jlahmani/data/micro/val'
