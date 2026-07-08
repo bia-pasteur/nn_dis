@@ -51,6 +51,7 @@ def epoch_(
     training: bool = True,
     weight_mask: Union[float, None] = 0.5,
     reduce_log: bool = False,
+    reduction: str = "weighted_mean",
 ) -> float:
     """
     Train for one epoch.
@@ -106,7 +107,7 @@ def epoch_(
             warped_source,
             target,
             mask,
-            reduction="weighted_mean",
+            reduction=reduction,
             weight_mask=weight_mask,
         )
         grad_loss = grad_loss_fn(displacement)
@@ -220,6 +221,7 @@ def main(train_config: TrainConfig):
             loss_weights=loss_weights,
             device=device,
             training=True,
+            reduction=train_config.reduction,
         )
 
         with torch.no_grad():
@@ -233,6 +235,7 @@ def main(train_config: TrainConfig):
                 loss_weights=loss_weights,
                 device=device,
                 training=False,
+                reduction=train_config.reduction,
             )
 
         update_log(logs_train, epoch_log_train)

@@ -31,6 +31,7 @@ class TrainConfig:
     save_every: int
     train_data: str
     val_data: str
+    reduction: str
 
 
 @dataclass

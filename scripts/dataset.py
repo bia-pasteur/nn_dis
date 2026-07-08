@@ -94,7 +94,10 @@ class TractionDataset(Dataset):
         depths = []
         for f in self.files:
             img = tifffile.imread(f)
-            d = img.shape[2]
+            if img.ndim == 4:
+                d = img.shape[1]
+            else:
+                d = img.shape[2]
             depths.append(d)
 
         self.max_depth = max(depths) if depths else 0
@@ -110,9 +113,6 @@ class TractionDataset(Dataset):
         q1, q99 = np.quantile(img_raw, [0.01, 0.99])
         img = np.clip((img_raw - q1) / (q99 - q1), 0, 1)
 
-        print(img.shape)
-        print(img.ndim)
-
         if img.ndim == 4:
             source_numpy = img[1]
             target_numpy = img[0]
@@ -123,10 +123,15 @@ class TractionDataset(Dataset):
         source = reshape_img(source_numpy, self.max_depth)  # (Z, H, W)
         target = reshape_img(target_numpy, self.max_depth)  # (Z, H, W)
 
-        mask_2d = compute_mask(np.stack([source, target], axis=0))  # (H, W)
-        mask_2d = (
-            torch.from_numpy(mask_2d).unsqueeze(0).unsqueeze(0)
-        )  # (C, Z, H, W) -> (1, 1, H, W)
+        if img.ndim == 4:
+            mask_2d = torch.ones(
+                (1, *source.shape), dtype=torch.float32
+            )  # (1, Z, H, W)
+        else:
+            mask_2d = compute_mask(np.stack([source, target], axis=0))  # (H, W)
+            mask_2d = (
+                torch.from_numpy(mask_2d).unsqueeze(0).unsqueeze(0)
+            )  # (C, Z, H, W) -> (1, 1, H, W)
 
         source = torch.from_numpy(source).unsqueeze(0)  # (C, Z, H, W) -> (1, Z, H, W)
         target = torch.from_numpy(target).unsqueeze(0)  # (C, Z, H, W) -> (1, Z, H, W)
@@ -143,5 +148,4 @@ class TractionDataset(Dataset):
             "source": subject.source.data,
             "target": subject.target.data,
             "mask": mask_2d,
-            "ind": index,
         }
