@@ -21,7 +21,7 @@ from tqdm import tqdm
 
 import network
 from config import TrainConfig
-from scripts.dataset import TractionDataset, get_transforms
+from scripts.dataset import TractionDataset
 
 
 def update_log(log_dict: dict, update: dict) -> None:
@@ -184,7 +184,7 @@ def main(train_config: TrainConfig):
 
     # Create dataloader
     train_dataset = TractionDataset(
-        Path(train_config.train_data), transform=get_transforms()
+        Path(train_config.train_data)  # , transform=get_transforms()
     )
     train_loader = DataLoader(
         train_dataset,

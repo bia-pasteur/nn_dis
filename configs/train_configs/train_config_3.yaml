@@ -1,9 +1,9 @@
 train_config: 
-    output_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/results/train_3_no_mask_transforms'
+    output_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/results/train_3_no_mask_no_transforms'
     epochs: 400
     workers: 4
     batch_size: 8
-    lr: 1e-5
+    lr: 1e-4
     alpha_param: 0.001
     beta_param: 0.001
     gpu: 0
