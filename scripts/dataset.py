@@ -22,29 +22,20 @@ def get_transforms():
         _type_: _description_
     """
 
-    geometric_transforms = tio.Compose(
+    training_transform = tio.Compose(
         [
             tio.RandomFlip(axes=("LR",), flip_probability=0.5),
-            tio.RandomAffine(scales=(0.95, 1.05), degrees=5, translation=1, p=0.5),
-            tio.RandomElasticDeformation(
-                num_control_points=7,
-                max_displacement=1,
-                locked_borders=2,
+            tio.RandomAffine(
+                scales=(0.9, 1.1),
+                degrees=(-180, 180, 0, 0, 0, 0),
+                translation=10,
+                p=0.5,
             ),
+            tio.RandomNoise(std=(0, 0.1), p=0.3),
+            tio.RandomGamma(log_gamma=(-0.8, 0.8), p=0.3),
+            tio.RandomBlur(std=(0, 2), p=0.2),
         ],
-        include=("source", "target"),
     )
-    intensity_transforms = tio.Compose(
-        [
-            tio.RandomNoise(std=(0.01, 0.05), p=0.3),
-            tio.RandomGamma(log_gamma=(-0.2, 0.2), p=0.3),
-            tio.RandomBlur(std=(0, 1), p=0.2),
-        ],
-        include=("source",),
-    )
-
-    training_transform = tio.Compose([geometric_transforms, intensity_transforms])
-
     return training_transform
 
 
@@ -136,16 +127,14 @@ class TractionDataset(Dataset):
         source = torch.from_numpy(source).unsqueeze(0)  # (C, Z, H, W) -> (1, Z, H, W)
         target = torch.from_numpy(target).unsqueeze(0)  # (C, Z, H, W) -> (1, Z, H, W)
 
-        subject = tio.Subject(
-            source=tio.ScalarImage(tensor=source),
-            target=tio.ScalarImage(tensor=target),
-        )
+        scalar_img = torch.stack([source, target], dim=0)
+        subject = tio.Subject(stack=tio.ScalarImage(tensor=scalar_img))
 
         if self.transform is not None:
             subject = self.transform(subject)
 
         return {
-            "source": subject.source.data,
-            "target": subject.target.data,
+            "source": subject.stack.data[0:1],
+            "target": subject.stack.data[1:2],
             "mask": mask_2d,
         }
