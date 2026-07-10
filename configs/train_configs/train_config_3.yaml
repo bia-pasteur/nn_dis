@@ -13,4 +13,4 @@ train_config:
     model_type: 'aniso'
     train_data: '/pasteur/helix/projects/bia/jlahmani/data/synthetic/train' 
     val_data: '/pasteur/helix/projects/bia/jlahmani/data/synthetic/val'
-    reduction: "mean"
+    reduction: "weighted_mean"
