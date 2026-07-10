@@ -1,5 +1,5 @@
 train_config: 
-    output_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/results/train_3_mask_new_aug'
+    output_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/results/train_3_mask_new_aug_2'
     epochs: 400
     workers: 4
     batch_size: 8
