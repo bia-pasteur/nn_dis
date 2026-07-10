@@ -114,15 +114,15 @@ class TractionDataset(Dataset):
         source = reshape_img(source_numpy, self.max_depth)  # (Z, H, W)
         target = reshape_img(target_numpy, self.max_depth)  # (Z, H, W)
 
-        if img.ndim == 4:
-            mask_2d = torch.ones(
-                (1, *source.shape), dtype=torch.float32
-            )  # (1, Z, H, W)
-        else:
-            mask_2d = compute_mask(np.stack([source, target], axis=0))  # (H, W)
-            mask_2d = (
-                torch.from_numpy(mask_2d).unsqueeze(0).unsqueeze(0)
-            )  # (C, Z, H, W) -> (1, 1, H, W)
+        # if img.ndim == 4:
+        #     mask_2d = torch.ones(
+        #         (1, *source.shape), dtype=torch.float32
+        #     )  # (1, Z, H, W)
+        # else:
+        mask_2d = compute_mask(np.stack([source, target], axis=0))  # (H, W)
+        mask_2d = (
+            torch.from_numpy(mask_2d).unsqueeze(0).unsqueeze(0)
+        )  # (C, Z, H, W) -> (1, 1, H, W)
 
         source = torch.from_numpy(
             source
