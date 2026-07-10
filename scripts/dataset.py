@@ -124,8 +124,12 @@ class TractionDataset(Dataset):
                 torch.from_numpy(mask_2d).unsqueeze(0).unsqueeze(0)
             )  # (C, Z, H, W) -> (1, 1, H, W)
 
-        source = torch.from_numpy(source).unsqueeze(0)  # (C, Z, H, W) -> (1, Z, H, W)
-        target = torch.from_numpy(target).unsqueeze(0)  # (C, Z, H, W) -> (1, Z, H, W)
+        source = torch.from_numpy(
+            source
+        )  # .unsqueeze(0)  # (C, Z, H, W) -> (1, Z, H, W)
+        target = torch.from_numpy(
+            target
+        )  # .unsqueeze(0)  # (C, Z, H, W) -> (1, Z, H, W)
 
         scalar_img = torch.stack([source, target], dim=0)
         subject = tio.Subject(stack=tio.ScalarImage(tensor=scalar_img))
