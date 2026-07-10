@@ -28,12 +28,12 @@ def get_transforms():
             tio.RandomAffine(
                 scales=(0.9, 1.1),
                 degrees=(-180, 180, 0, 0, 0, 0),
-                translation=10,
+                translation=8,
                 p=0.5,
             ),
             tio.RandomNoise(std=(0, 0.1), p=0.3),
             tio.RandomGamma(log_gamma=(-0.8, 0.8), p=0.3),
-            tio.RandomBlur(std=(0, 2), p=0.2),
+            tio.RandomBlur(std=(0, 1), p=0.2),
         ],
     )
     return training_transform
