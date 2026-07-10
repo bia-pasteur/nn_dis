@@ -28,11 +28,11 @@ def get_transforms():
             tio.RandomAffine(
                 scales=(0.9, 1.1),
                 degrees=(-180, 180, 0, 0, 0, 0),
-                translation=8,
+                translation=7,
                 p=0.5,
             ),
-            tio.RandomNoise(std=(0, 0.1), p=0.3),
-            tio.RandomGamma(log_gamma=(-0.8, 0.8), p=0.3),
+            tio.RandomNoise(std=(0, 0.08), p=0.3),
+            tio.RandomGamma(log_gamma=(-0.7, 0.7), p=0.3),
             tio.RandomBlur(std=(0, 1), p=0.2),
         ],
     )
