@@ -32,7 +32,7 @@ def get_transforms():
                 p=0.5,
             ),
             # tio.RandomNoise(std=(0, 0.08), p=0.3),
-            # tio.RandomGamma(log_gamma=(-0.7, 0.7), p=0.3),
+            tio.RandomGamma(log_gamma=(-0.7, 0.7), p=0.3),
             # tio.RandomBlur(std=(0, 1), p=0.2),
         ],
     )
