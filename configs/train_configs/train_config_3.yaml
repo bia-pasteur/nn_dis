@@ -1,5 +1,5 @@
 train_config: 
-    output_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/results/train_3_mask_flip_affine_blur'
+    output_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/results/train_3_mask_no_gamma'
     epochs: 400
     workers: 4
     batch_size: 8
