@@ -4,3 +4,4 @@ jobs
 results
 .vscode
 logs_per_im.csv
+.claude

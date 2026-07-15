@@ -1,5 +1,6 @@
 """This is useful to create the datasets"""
 
+import os
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -70,25 +71,34 @@ class TractionDataset(Dataset):
         Dataset (_type_): _description_
     """
 
-    EXCLUDED_INDICES = []  # [52, 77, 137, 196, 404, 437, 491, 528, 557]
-
     def __init__(self, folder: Path, transform: Optional[Callable] = None):
-        # self.files = list(folder.glob("*.tiff"))
-        all_files = sorted(folder.glob("*.tiff"))
-        self.files = [
-            f for i, f in enumerate(all_files) if i not in self.EXCLUDED_INDICES
-        ]
+        self.files = sorted(
+            [
+                *folder.glob("*.tiff"),
+                *folder.glob("*.tif"),
+                *folder.glob("*.npy"),
+            ]
+        )
         self.folder = folder
 
         self.transform = transform
 
         depths = []
         for f in self.files:
-            img = tifffile.imread(f)
+            if f.suffix.lower() in [".tiff", ".tif"]:
+                img = tifffile.imread(f)
+            elif f.suffix.lower() == ".npy":
+                img = np.load(f)
+            else:
+                continue  # skip unknown file types
+
             if img.ndim == 4:
                 d = img.shape[1]
-            else:
+            elif img.ndim >= 3:
                 d = img.shape[2]
+            else:
+                d = 1  # fallback for 2D images
+
             depths.append(d)
 
         self.max_depth = max(depths) if depths else 0
@@ -99,11 +109,21 @@ class TractionDataset(Dataset):
     def __getitem__(self, index: int):
 
         img_path = self.files[index]
-        img_raw = tifffile.imread(img_path)
 
+        ext = os.path.splitext(img_path)[1].lower()
+
+        if ext == ".npy":
+            img_raw = np.load(img_path)
+        elif ext in [".tiff", ".tif"]:
+            img_raw = tifffile.imread(img_path)
+        else:
+            raise ValueError(f"Unsupported file type: {ext}")
+
+        # Qunatile normalization
         q1, q99 = np.quantile(img_raw, [0.01, 0.99])
         img = np.clip((img_raw - q1) / (q99 - q1), 0, 1)
 
+        # Extract source and target (I2 -> I1 for vxm)
         if img.ndim == 4:
             source_numpy = img[1]
             target_numpy = img[0]
@@ -114,31 +134,26 @@ class TractionDataset(Dataset):
         source = reshape_img(source_numpy, self.max_depth)  # (Z, H, W)
         target = reshape_img(target_numpy, self.max_depth)  # (Z, H, W)
 
-        # if img.ndim == 4:
-        #     mask_2d = torch.ones(
-        #         (1, *source.shape), dtype=torch.float32
-        #     )  # (1, Z, H, W)
-        # else:
         mask_2d = compute_mask(np.stack([source, target], axis=0))  # (H, W)
         mask_2d = (
             torch.from_numpy(mask_2d).unsqueeze(0).unsqueeze(0)
         )  # (C, Z, H, W) -> (1, 1, H, W)
 
-        source = torch.from_numpy(
-            source
-        )  # .unsqueeze(0)  # (C, Z, H, W) -> (1, Z, H, W)
-        target = torch.from_numpy(
-            target
-        )  # .unsqueeze(0)  # (C, Z, H, W) -> (1, Z, H, W)
+        source = torch.from_numpy(source)  # (Z, H, W) -> (Z, H, W)
+        target = torch.from_numpy(target)  # (Z, H, W) -> (Z, H, W)
 
-        scalar_img = torch.stack([source, target], dim=0)
+        # Stack to create a scalar image where each temporal frame becomes a channel.
+        # This is necessary for augmentations to apply correctly on the two images.
+        scalar_img = torch.stack(
+            [source, target], dim=0
+        )  # (C, Z, H, W) -> (2, Z, H, W)
         subject = tio.Subject(stack=tio.ScalarImage(tensor=scalar_img))
 
         if self.transform is not None:
             subject = self.transform(subject)
 
         return {
-            "source": subject.stack.data[0:1],
-            "target": subject.stack.data[1:2],
+            "source": subject.stack.data[0:1],  # I2
+            "target": subject.stack.data[1:2],  # I1
             "mask": mask_2d,
         }
