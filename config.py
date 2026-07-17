@@ -46,7 +46,7 @@ class FistaParams:
     num_pyramid: int
     pyramid_downscale: float
     pyramid_min_size: int
-    spacing: List[int] | None = None
+    spacing: List[float] | None = None
 
 
 @dataclass
@@ -109,3 +109,11 @@ class OpticalFlowParams:
     farneback: FarnebackParams
     tvl1: TVL1Params
     ilk: ILKParams
+
+
+@dataclass
+class SaveParams:
+    """Parameters for saving the results"""
+
+    folder: str
+    save_path: str

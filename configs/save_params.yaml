@@ -1,0 +1,3 @@
+save_params: 
+  folder: '/Users/josephinelahmani/helix_mount/data/synthetic/test' 
+  save_path: '/Users/josephinelahmani/helix_mount/data/synthetic/computed_flows_'

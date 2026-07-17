@@ -3,8 +3,8 @@ optical_flow:
   global_flow: False
 
   fista:
-    num_iter: 100 # for synthetic elas exp : 300, for image 1 and 2: 300
-    num_warp: 5
+    num_iter: 300 # for synthetic elas exp : 300, for image 1 and 2: 300
+    num_warp: 7
     alpha: 0.1 # for synthetic elas exp and image 1: 0.1, for image 2: 0.3
     beta: 0.1 # for synthetic elas exp: 0.7, for image 1 and image 2: 0.8
     eps: 0.000001

@@ -3,9 +3,9 @@ train_config:
     epochs: 400
     workers: 4
     batch_size: 8
-    lr: 1e-5
-    alpha_param: 0.001
-    beta_param: 0.001
+    lr: 1e-4
+    alpha_param: 0.1
+    beta_param: 0.01
     gpu: 0
     save_every: 100
     features: [16, 32, 32, 64, 64]
