@@ -128,8 +128,8 @@ class TractionDataset(Dataset):
             source_numpy = img[1]
             target_numpy = img[0]
         else:
-            source_numpy = img[1, 1]
-            target_numpy = img[0, 1]
+            source_numpy = img[1, 0]  # 0 for gel, 1 for cell
+            target_numpy = img[0, 0]  # 0 for gel, 1 for cell
 
         source = reshape_img(source_numpy, self.max_depth)  # (Z, H, W)
         target = reshape_img(target_numpy, self.max_depth)  # (Z, H, W)

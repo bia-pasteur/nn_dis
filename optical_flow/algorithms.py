@@ -276,7 +276,7 @@ def resize_flow(flow, shape):
 
     elif flow.ndim == 4 and flow.shape[0] == 3:
         for i, s in enumerate(scale):
-            rflow[i] /= s
+            rflow[i] *= s
     else:
         raise ValueError(f"Flow shape {flow.shape}, must be (2,H,W) or (3,D,H,W)")
 
