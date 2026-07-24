@@ -27,7 +27,7 @@ warnings.filterwarnings(
 ### Functions related to FISTA Optical Flow with multiscale approach
 
 
-def A(I, spacing=None):
+def A(img, spacing=None):
     """
     Computes A such that A @ h = nabla_I ⋅ h
 
@@ -39,9 +39,9 @@ def A(I, spacing=None):
         sp.csr_matrix: Sparse matrix representing A.
     """
     if spacing is None:
-        spacing = (1.0,) * I.ndim
+        spacing = (1.0,) * img.ndim
 
-    grads = np.gradient(I, *spacing)
+    grads = np.gradient(img, *spacing)
     grads_flat = [np.ravel(g, order="C") for g in grads]
     A_blocks = [sp.diags(g, offsets=0, format="csr") for g in grads_flat]
     A_full = sp.hstack(A_blocks, format="csr")
@@ -155,7 +155,7 @@ def nabla(C, S: Tuple[int, ...], spacing=None):
 
 
 def compute_Q(
-    I: np.ndarray, alpha: float, beta: float, nabla_for_L: sp.spmatrix, spacing=None
+    img: np.ndarray, alpha: float, beta: float, nabla_for_L: sp.spmatrix, spacing=None
 ):
     """
     Computed the matrix Q defined as 2*(A^T*A + alpha*2*∇^T*∇ + beta*2*H^T*H)
@@ -170,7 +170,7 @@ def compute_Q(
     Returns:
          sp.csr_array: Sparse matrix reqpresenting Q
     """
-    A_mat = A(I, spacing=spacing)
+    A_mat = A(img, spacing=spacing)
     nabla_mat = nabla_for_L
     H_mat = nabla_mat.T @ nabla_mat
 
@@ -183,7 +183,7 @@ def compute_Q(
 
 
 def compute_lip(
-    I: np.ndarray, alpha: float, beta: float, nabla_for_L: sp.spmatrix, spacing=None
+    img: np.ndarray, alpha: float, beta: float, nabla_for_L: sp.spmatrix, spacing=None
 ):
     """
     Computes the best Lipschitz constant L of the gradient of the function
@@ -200,7 +200,7 @@ def compute_lip(
     Returns:
         float: Theoretical Lipschitz constant of the gradient of f(h)
     """
-    Q = compute_Q(I, alpha, beta, nabla_for_L, spacing=spacing)
+    Q = compute_Q(img, alpha, beta, nabla_for_L, spacing=spacing)
     return sp.linalg.norm(Q, ord=2)
 
 
@@ -1173,12 +1173,6 @@ def hs_optical_flow(
     d = reference.ndim
 
     # Build the image pyramids for both reference and moving images
-    # pyramid_ = list(
-    #     zip(
-    #         get_pyramid(reference, pyramid_downscale, num_pyramid, pyramid_min_size),
-    #         get_pyramid(moving, pyramid_downscale, num_pyramid, pyramid_min_size),
-    #     )
-    # )
 
     pyramid_ = list(
         zip(
@@ -1228,42 +1222,6 @@ def hs_optical_flow(
         )
 
     return h
-
-    # # Initialize displacement field (optical flow) at the coarsest pyramid level
-    # u0 = np.zeros(
-    #     (d,) + pyramid_[0][0].shape
-    # )  # Shape matching the coarsest reference level
-
-    # # Compute optical flow at the coarsest pyramid level
-    # u = _hs_optical_flow(
-    #     pyramid_[0][0],
-    #     pyramid_[0][1],
-    #     u0,
-    #     alpha,
-    #     num_iter=num_iter,
-    #     num_warp=num_warp,
-    #     eps=eps,
-    #     w=w,
-    # )
-
-    # # Progressively refine the optical flow up the pyramid levels
-    # for pyr_ref, pyr_mov in pyramid_[1:]:
-    #     # Resize the flow field to the current pyramid level's dimensions
-    #     u = resize_flow(u, pyr_ref.shape)
-
-    #     # Update the flow field using the HS algorithm at the current pyramid level
-    #     u = _hs_optical_flow(
-    #         pyr_ref,
-    #         pyr_mov,
-    #         u,
-    #         alpha,
-    #         num_iter=num_iter,
-    #         num_warp=num_warp,
-    #         eps=eps,
-    #         w=w,
-    #     )
-
-    # return u
 
 
 # Functions to run the algorithms on an film with several frames
