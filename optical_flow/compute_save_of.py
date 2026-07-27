@@ -39,7 +39,7 @@ def main(optical_flow: OpticalFlowParams, save_params: SaveParams):
             )
         else:
             img_padded = np.stack(
-                [reshape_img(img[0, 1], 32), reshape_img(img[1, 1], 32)], axis=0
+                [reshape_img(img[0, 0], 32), reshape_img(img[1, 0], 32)], axis=0
             )
         mask_padded = img_padded[0] > 0.1
 
@@ -67,9 +67,9 @@ def main(optical_flow: OpticalFlowParams, save_params: SaveParams):
             [dis_tvl1_[i] * mask_padded * spacing[i] for i in range(dis_tvl1_.shape[0])]
         )
         save_path.mkdir(exist_ok=True)
-        np.save(save_path / f"flow_fista_{path_img.name}", dis_fista_final)
-        np.save(save_path / f"flow_hs_{path_img.name}", dis_hs_final)
-        np.save(save_path / f"flow_tvl1_{path_img.name}", dis_tvl1_final)
+        np.save(save_path / f"flow_fista_beads_{path_img.name}", dis_fista_final)
+        np.save(save_path / f"flow_hs_beads_{path_img.name}", dis_hs_final)
+        np.save(save_path / f"flow_tvl1_beads_{path_img.name}", dis_tvl1_final)
 
 
 if __name__ == "__main__":

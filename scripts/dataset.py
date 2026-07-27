@@ -120,16 +120,16 @@ class TractionDataset(Dataset):
             raise ValueError(f"Unsupported file type: {ext}")
 
         # Qunatile normalization
-        q1, q99 = np.quantile(img_raw, [0.01, 0.99])
-        img = np.clip((img_raw - q1) / (q99 - q1), 0, 1)
+        q1, q99 = np.quantile(img_raw[:, 0], [0.01, 0.99])
+        img = np.clip((img_raw[:, 0] - q1) / (q99 - q1), 0, 1)
 
         # Extract source and target (I2 -> I1 for vxm)
         if img.ndim == 4:
             source_numpy = img[1]
             target_numpy = img[0]
         else:
-            source_numpy = img[1, 0]  # 0 for gel, 1 for cell
-            target_numpy = img[0, 0]  # 0 for gel, 1 for cell
+            source_numpy = img[1]  # 0 for gel, 1 for cell
+            target_numpy = img[0]  # 0 for gel, 1 for cell
 
         source = reshape_img(source_numpy, self.max_depth)  # (Z, H, W)
         target = reshape_img(target_numpy, self.max_depth)  # (Z, H, W)
