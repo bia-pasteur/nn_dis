@@ -30,8 +30,8 @@ def main(optical_flow: OpticalFlowParams, save_params: SaveParams):
         elif ext in [".tiff", ".tif"]:
             img_raw = tifffile.imread(path_img)
 
-        q1, q99 = np.quantile(img_raw, [0.01, 0.99])
-        img = np.clip((img_raw - q1) / (q99 - q1), 0, 1)
+        q1, q99 = np.quantile(img_raw[:, 0], [0.01, 0.99])
+        img = np.clip((img_raw[:, 0] - q1) / (q99 - q1), 0, 1)
 
         if img.ndim == 4:
             img_padded = np.stack(
@@ -39,7 +39,7 @@ def main(optical_flow: OpticalFlowParams, save_params: SaveParams):
             )
         else:
             img_padded = np.stack(
-                [reshape_img(img[0, 0], 32), reshape_img(img[1, 0], 32)], axis=0
+                [reshape_img(img[0], 32), reshape_img(img[1], 32)], axis=0
             )
         mask_padded = img_padded[0] > 0.1
 

@@ -1,4 +1,4 @@
 dataset_creation: 
-    folder: '/Users/josephinelahmani/helix_mount/data/synthetic/all_data' #'/pasteur/helix/projects/bia/jlahmani/vxmorph/data/micro/original_images'
+    folder: '/pasteur/helix/projects/bia/jlahmani/vxmorph/data/micro/original_images'
     seed: 42
     gap_max: 7

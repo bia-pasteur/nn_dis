@@ -4,14 +4,14 @@ optical_flow:
 
   fista:
     num_iter: 300 # for synthetic elas exp : 300, for image 1 and 2: 300
-    num_warp: 7
+    num_warp: 5
     alpha: 0.1 # for synthetic elas exp and image 1: 0.1, for image 2: 0.3
     beta: 0.1 # for synthetic elas exp: 0.7, for image 1 and image 2: 0.8
     eps: 0.000001
     num_pyramid: 10
     pyramid_downscale: 1.5
     pyramid_min_size: 16
-    spacing: [1.0, 0.13, 0.13]
+    spacing: [1.5, 0.25, 0.25]
 
   hs:
     num_iter: 300 # for synthetic elas exp: 300, for image 1 and 2: 300

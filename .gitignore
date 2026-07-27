@@ -6,3 +6,4 @@ results
 logs_per_im.csv
 .claude
 computed_flows
+tests/
