@@ -51,7 +51,7 @@ def epoch_(
     training: bool = True,
     weight_mask: Union[float, None] = 0.5,
     reduce_log: bool = False,
-    reduction: str = "weighted_mean",
+    reduction: str = "mean",
 ) -> float:
     """
     Train for one epoch.
@@ -184,7 +184,10 @@ def main(train_config: TrainConfig):
 
     # Create dataloader
     train_dataset = TractionDataset(
-        Path(train_config.train_data), transform=get_transforms()
+        Path(train_config.train_data),
+        transform=get_transforms(),
+        channel=train_config.channel,
+        mask=train_config.mask,
     )
     train_loader = DataLoader(
         train_dataset,
@@ -193,7 +196,11 @@ def main(train_config: TrainConfig):
         shuffle=True,
     )
 
-    validation_dataset = TractionDataset(Path(train_config.val_data))
+    validation_dataset = TractionDataset(
+        Path(train_config.val_data),
+        channel=train_config.channel,
+        mask=train_config.mask,
+    )
     validation_loader = DataLoader(
         validation_dataset,
         batch_size=train_config.batch_size,

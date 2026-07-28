@@ -15,15 +15,23 @@ _ALL_REDUCTIONS = _MULTIDIM_REDUCTIONS | _SINGLEDIM_REDUCTIONS
 
 def reduce(
     tensor: torch.Tensor,
-    reduction: str = "weighted_mean",
+    reduction: str = "mean",
     dim: Union[int, Tuple[int, ...], None] = None,
     keepdims: bool = False,
-    mask: torch.tensor = None,
+    mask: torch.Tensor = None,
     weight_mask: Union[float, None] = 0.5,
 ) -> torch.Tensor:
     """
     Apply any torch reduction on a tensor,
     inspired by neurite.functional
+
+    Reduction behavior with mask:
+    - "mean": mean over masked region only (ignores unmasked pixels)
+    - "weighted_mean": weighted average between masked and unmasked regions
+    - Other reductions: not implemented with mask
+
+    If mask is all ones and reduction is "weighted_mean", automatically
+    falls back to simple "mean" for efficiency.
     """
     if reduction is None:
         return tensor
@@ -38,31 +46,50 @@ def reduce(
             f"Reduction '{reduction}' requires dim to be an int, got {type(dim)}"
         )
 
-    if reduction == "mean" and mask is not None:
+    if mask is not None:
         mask_bool = mask.to(tensor.device).bool()
 
-        mask_bool = mask_bool.expand_as(tensor)
+        # Expand mask to match tensor shape
+        # mask is (B, 1, H, W), tensor is (B, C, Z, H, W)
+        # Expand to (B, 1, 1, H, W) then let broadcasting handle the rest
+        while mask_bool.ndim < tensor.ndim:
+            mask_bool = mask_bool.unsqueeze(2)  # Add Z dimension
 
-        masked_values = tensor[mask_bool]
+        # Optimization: if mask is all ones and weighted_mean, use simple mean
+        if reduction == "weighted_mean" and mask_bool.all():
+            return tensor.mean()
 
-        if masked_values.numel() == 0:
-            return torch.tensor(0.0, device=tensor.device)
+        if reduction == "mean":
+            # Mean over masked region only
+            masked_values = tensor[mask_bool]
 
-        return masked_values.mean()
+            if masked_values.numel() == 0:
+                return torch.tensor(0.0, device=tensor.device)
 
-    if reduction == "weighted_mean":
-        assert mask is not None
-        mask_bool = mask.to(tensor.device).bool()
-        mask_bool = mask_bool.expand_as(tensor)
-        weight_map = torch.zeros_like(tensor)
-        weight_map[mask_bool] = weight_mask / torch.sum(mask_bool)
-        weight_map[~mask_bool] = (1 - weight_mask) / (torch.sum(~mask_bool))
+            return masked_values.mean()
 
-        return torch.sum(tensor * weight_map)
+        elif reduction == "weighted_mean":
+            # Weighted average between masked and unmasked regions
+            weight_map = torch.zeros_like(tensor)
+            num_masked = torch.sum(mask_bool)
+            num_unmasked = torch.sum(~mask_bool)
 
-    elif mask is not None:
-        raise NotImplementedError
+            # Avoid division by zero
+            if num_masked > 0:
+                weight_map[mask_bool] = weight_mask / num_masked
+            if num_unmasked > 0:
+                weight_map[~mask_bool] = (1 - weight_mask) / num_unmasked
 
+            return torch.sum(tensor * weight_map)
+
+        else:
+            raise NotImplementedError(
+                f"Reduction '{reduction}' with mask is not implemented. "
+                f"Use 'mean' (masked region only) or 'weighted_mean' "
+                f"(weighted average of masked/unmasked)."
+            )
+
+    # No mask - standard torch reduction
     return getattr(torch, reduction)(tensor, dim=dim, keepdim=keepdims)
 
 

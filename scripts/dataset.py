@@ -71,7 +71,13 @@ class TractionDataset(Dataset):
         Dataset (_type_): _description_
     """
 
-    def __init__(self, folder: Path, transform: Optional[Callable] = None):
+    def __init__(
+        self,
+        folder: Path,
+        transform: Optional[Callable] = None,
+        channel: Optional[str] = None,
+        mask: Optional[bool] = False,
+    ):
         self.files = sorted(
             [
                 *folder.glob("*.tiff"),
@@ -80,7 +86,8 @@ class TractionDataset(Dataset):
             ]
         )
         self.folder = folder
-
+        self.channel = channel
+        self.mask = mask
         self.transform = transform
 
         depths = []
@@ -119,25 +126,26 @@ class TractionDataset(Dataset):
         else:
             raise ValueError(f"Unsupported file type: {ext}")
 
-        # Qunatile normalization
-        q1, q99 = np.quantile(img_raw[:, 0], [0.01, 0.99])
-        img = np.clip((img_raw[:, 0] - q1) / (q99 - q1), 0, 1)
+        # Quantile normalization
+        data = (
+            img_raw[:, self.channel] if self.channel is not None else img_raw
+        )  # Normalize the channel if provided
+        q1, q99 = np.quantile(data, [0.01, 0.99])
+        img = np.clip((data - q1) / (q99 - q1), 0, 1)  # (2, Z, H, W)
 
         # Extract source and target (I2 -> I1 for vxm)
-        if img.ndim == 4:
-            source_numpy = img[1]
-            target_numpy = img[0]
-        else:
-            source_numpy = img[1]  # 0 for gel, 1 for cell
-            target_numpy = img[0]  # 0 for gel, 1 for cell
+        source_numpy = img[1]
+        target_numpy = img[0]
 
         source = reshape_img(source_numpy, self.max_depth)  # (Z, H, W)
         target = reshape_img(target_numpy, self.max_depth)  # (Z, H, W)
 
-        mask_2d = compute_mask(np.stack([source, target], axis=0))  # (H, W)
-        mask_2d = (
-            torch.from_numpy(mask_2d).unsqueeze(0).unsqueeze(0)
-        )  # (C, Z, H, W) -> (1, 1, H, W)
+        mask = (
+            compute_mask(np.stack([source, target], axis=0))
+            if self.mask
+            else np.ones(source.shape[1:])
+        )
+        mask_2d = torch.from_numpy(mask).unsqueeze(0).unsqueeze(0)  # (1, 1, H, W)
 
         source = torch.from_numpy(source)  # (Z, H, W) -> (Z, H, W)
         target = torch.from_numpy(target)  # (Z, H, W) -> (Z, H, W)

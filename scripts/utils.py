@@ -40,7 +40,7 @@ def reshape_img(
     for z in range(target_d):
         scale_h = target_h / image.shape[1]
         scale_w = target_w / image.shape[2]
-        resized[z] = zoom(image[z], (scale_h, scale_w))
+        resized[z] = zoom(image[z], (scale_h, scale_w), order=1)
 
     out = resized
 

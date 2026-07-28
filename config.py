@@ -32,6 +32,8 @@ class TrainConfig:
     train_data: str
     val_data: str
     reduction: str
+    channel: str | None = None
+    mask: bool = False
 
 
 @dataclass
