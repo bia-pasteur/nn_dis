@@ -32,7 +32,7 @@ class TrainConfig:
     train_data: str
     val_data: str
     reduction: str
-    channel: str | None = None
+    channel: int | None = None
     mask: bool = False
 
 
