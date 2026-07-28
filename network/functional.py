@@ -48,12 +48,7 @@ def reduce(
 
     if mask is not None:
         mask_bool = mask.to(tensor.device).bool()
-
-        # Expand mask to match tensor shape
-        # mask is (B, 1, H, W), tensor is (B, C, Z, H, W)
-        # Expand to (B, 1, 1, H, W) then let broadcasting handle the rest
-        while mask_bool.ndim < tensor.ndim:
-            mask_bool = mask_bool.unsqueeze(2)  # Add Z dimension
+        mask_bool = mask_bool.expand_as(tensor)
 
         # Optimization: if mask is all ones and weighted_mean, use simple mean
         if reduction == "weighted_mean" and mask_bool.all():
