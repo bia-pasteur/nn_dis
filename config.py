@@ -48,7 +48,6 @@ class FistaParams:
     num_pyramid: int
     pyramid_downscale: float
     pyramid_min_size: int
-    spacing: List[float] | None = None
 
 
 @dataclass

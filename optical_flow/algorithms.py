@@ -283,97 +283,6 @@ def resize_flow(flow, shape):
     return rflow
 
 
-# def get_pyramid(image, downscale=2.0, nlevel=10, min_size=16):
-#     """
-#     Construct image pyramid.
-
-#     Args:
-#         img (np.ndarray): The image to be preprocessed (Gray scale or RGB)
-#             Shape: # A compléter
-#         downscale (float): The pyramid downscale factor
-#             Default: 2
-#         nlevel (int): The maximum number of pyramid levels
-#             Default: 10
-#         min_size (int): The minimum soze for any dimension of the pyramid levels
-#             Default: 16
-
-#     Returns :
-#         list[ndarray]: The coarse to fine images pyramid
-#     """
-
-#     pyramid = [image]
-#     size = min(image.shape)
-#     count = 1
-
-#     while (count < nlevel) and (size > downscale * min_size):
-#         J = pyramid_reduce(pyramid[-1], downscale)
-#         pyramid.append(J)
-#         size = min(J.shape)
-#         count += 1
-
-#     return pyramid[::-1]
-
-
-# def get_pyramid(image, spacing=None, downscale=2.0, nlevel=10, min_size=16):
-#     """
-#     Construct image pyramid.
-
-#     Args:
-#         img (np.ndarray): The image to be preprocessed (Gray scale or RGB)
-#             Shape: # A compléter
-#         downscale (float): The pyramid downscale factor
-#             Default: 2
-#         nlevel (int): The maximum number of pyramid levels
-#             Default: 10
-#         min_size (int): The minimum size for any dimension of the pyramid levels
-#             Default: 16
-
-#     Returns :
-#         list[ndarray]: The coarse to fine images pyramid
-#     """
-
-#     d = image.ndim
-
-#     if spacing is None:
-#         spacing = (1.0,) * d
-
-#     current_spacing = np.array(spacing, dtype=float)
-#     current_image  = image.astype(float)
-
-#     pyramid = [(current_image, tuple(current_spacing))]
-#     count = 1
-
-#     while count < nlevel:
-#         current_shape = np.array(current_image.shape, dtype=float)
-
-#         scale_factors = np.ones(d)
-#         smallest = True
-
-#         for i in range(d):
-#             if current_shape[i] / downscale >= min_size:
-#                 scale_factors[i] = 1.0 / downscale
-#                 smallest = smallest and False
-
-#         if smallest:
-#             break
-
-#         new_image = rescale(
-#             current_image,
-#             scale=scale_factors,
-#             anti_aliasing=True,
-#             preserve_range=True,
-#         )
-
-#         new_spacing = current_spacing / scale_factors
-
-#         pyramid.append((new_image, tuple(new_spacing)))
-#         current_image  = new_image
-#         current_spacing = new_spacing
-#         count += 1
-
-#     return pyramid[::-1]
-
-
 def get_pyramid(image, spacing=None, downscale=2.0, nlevel=10, min_size=16):
     """
     Construct image pyramid.
@@ -767,7 +676,6 @@ def _fista(
         Beck, A., & Teboulle, M. (2009). A fast iterative shrinkage-thresholding algorithm for linear inverse problems.
         SIAM Journal on Imaging Sciences, 2(1), 183–202
     """
-    print("img size", ref.shape)
     ref = ref.astype(np.float32)
     moving = moving.astype(np.float32)
     h0 = h0.astype(np.float32)
@@ -1228,7 +1136,7 @@ def hs_optical_flow(
 
 
 def fista_of(
-    img: np.ndarray, fista_params: FistaParams, global_flow: bool
+    img: np.ndarray, fista_params: FistaParams, global_flow: bool, spacing: Tuple[float]
 ) -> np.ndarray:
     """
     Computes optical flow between consecutive frames of an image sequence using FISTA.
@@ -1249,7 +1157,7 @@ def fista_of(
               - `num_pyramid` (int): Number of scales in the image pyramid.
               - `pyramid_downscale` (float): Scale factor between pyramid levels.
               - `pyramid_min_size` (int): Minimum spatial size at the coarsest pyramid level.
-              -  `spacing` (tuple or list, optional): voxel size along each axis
+              -  `channel` (int, optional): Channel of the image to isolate. If None, work on the whole image.
         global_flow (bool): Global or local flow
               - True for flow between 0 and t for every t
               - False for flow between t and t+1 for every t
@@ -1262,6 +1170,7 @@ def fista_of(
               - `T-1` corresponds to the number of computed frame-to-frame displacements,
               - `*S` matches the spatial dimensions of the input frames.
     """
+
     dimension = len(img[0].shape)
 
     frames = img.shape[0]
@@ -1279,7 +1188,7 @@ def fista_of(
                 pyramid_downscale=fista_params.pyramid_downscale,
                 pyramid_min_size=fista_params.pyramid_min_size,
                 eps=fista_params.eps,
-                spacing=fista_params.spacing,
+                spacing=spacing,
             )
     else:
         h_FISTA = np.zeros((dimension,) + (img.shape[0] - 1,) + img.shape[1:])
@@ -1295,7 +1204,7 @@ def fista_of(
                 pyramid_downscale=fista_params.pyramid_downscale,
                 pyramid_min_size=fista_params.pyramid_min_size,
                 eps=fista_params.eps,
-                spacing=fista_params.spacing,
+                spacing=spacing,
             )
     return h_FISTA
 
