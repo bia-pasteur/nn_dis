@@ -16,10 +16,10 @@ class SpatialTransformer(nn.Module):
 
     def forward(
         self,
-        source: torch.Tensor,
+        moving: torch.Tensor,
         displacement: torch.Tensor,
     ) -> torch.Tensor:
-        shape = source.shape[2:]
+        shape = moving.shape[2:]
         ndim = len(shape)
 
         axes = [
@@ -47,7 +47,7 @@ class SpatialTransformer(nn.Module):
         grid = grid.permute(0, 2, 3, 4, 1)  # To have a (N, D, H, W, C) shape
 
         return F.grid_sample(
-            source, grid, mode=self.mode, padding_mode="reflection", align_corners=True
+            moving, grid, mode=self.mode, padding_mode="reflection", align_corners=True
         )
 
 
@@ -94,7 +94,7 @@ class UpsampleConv(nn.Module):
         super().__init__()
         self.upsample = nn.Upsample(
             scale_factor=2.0, mode="trilinear", align_corners=True
-        )  # scale_factor can be size = target size
+        )  # scale_factor can be size = moving size
 
         self.conv = ConvBlock(
             in_channels=in_channels + skip_channels, out_channels=out_channels, stride=1
@@ -168,8 +168,8 @@ class NetworkPairwise(nn.Module):
     def __init__(
         self,
         ndim: int = 3,
-        source_channels: int = 1,
-        target_channels: int = 1,
+        ref_channels: int = 1,
+        moving_channels: int = 1,
         features: List[int] = [16, 32, 32],
         flow_multiplier: float = 10,
         device: str = "cpu",
@@ -181,7 +181,7 @@ class NetworkPairwise(nn.Module):
         self._upsample_mode = "trilinear"
         self.flow_multiplier = flow_multiplier
 
-        in_channels = source_channels + target_channels
+        in_channels = ref_channels + moving_channels
 
         self.encoder = nn.ModuleList()
 
@@ -220,12 +220,12 @@ class NetworkPairwise(nn.Module):
 
     def forward(
         self,
-        source: torch.Tensor,
-        target: torch.Tensor,
-        return_warped_source: bool = False,
+        ref: torch.Tensor,
+        moving: torch.Tensor,
+        return_warped_moving: bool = False,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
 
-        x = torch.cat([source, target], dim=1)
+        x = torch.cat([ref, moving], dim=1)
 
         skips = []
         for enc_block in self.encoder:
@@ -240,8 +240,8 @@ class NetworkPairwise(nn.Module):
 
         field = self.flow_head(x) * self.flow_multiplier
 
-        if return_warped_source:
-            return field, self.transformer(source, field)
+        if return_warped_moving:
+            return field, self.transformer(moving, field)
 
         return field
 
@@ -255,8 +255,8 @@ class NetworkPairwiseAnisotropic(nn.Module):
     def __init__(
         self,
         ndim: int = 3,
-        source_channels: int = 1,
-        target_channels: int = 1,
+        ref_channels: int = 1,
+        moving_channels: int = 1,
         features: List[int] = [16, 32, 32, 64, 64],
         n_2d_levels: int = 2,
         flow_multiplier: float = 10,
@@ -268,7 +268,7 @@ class NetworkPairwiseAnisotropic(nn.Module):
         self.device = device
         self.flow_multiplier = flow_multiplier
 
-        in_channels = source_channels + target_channels
+        in_channels = ref_channels + moving_channels
 
         self.encoder = nn.ModuleList()
         self.skip_channels = []
@@ -312,12 +312,12 @@ class NetworkPairwiseAnisotropic(nn.Module):
 
     def forward(
         self,
-        source: torch.Tensor,
-        target: torch.Tensor,
-        return_warped_source: bool = False,
+        ref: torch.Tensor,
+        moving: torch.Tensor,
+        return_warped_moving: bool = False,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
 
-        x = torch.cat([source, target], dim=1)
+        x = torch.cat([ref, moving], dim=1)
 
         skips = []
         for enc_block in self.encoder:
@@ -332,7 +332,7 @@ class NetworkPairwiseAnisotropic(nn.Module):
 
         field = self.flow_head(x) * self.flow_multiplier
 
-        if return_warped_source:
-            return field, self.transformer(source, field)
+        if return_warped_moving:
+            return field, self.transformer(moving, field)
 
         return field

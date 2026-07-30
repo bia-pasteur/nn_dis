@@ -96,16 +96,16 @@ def epoch_(
             optimizer.zero_grad()
 
         # Move to device in training loop (not dataloader/dataset!)
-        source = batch["source"].to(device)
-        target = batch["target"].to(device)
+        ref = batch["ref"].to(device)
+        moving = batch["moving"].to(device)
         mask = batch["mask"].to(device)
 
-        # Get the displacement and the warped source image from the model
-        displacement, warped_source = model(source, target, return_warped_source=True)
+        # Get the displacement and the warped ref image from the model
+        displacement, warped_moving = model(ref, moving, return_warped_ref=True)
 
         img_loss = image_loss_fn(
-            warped_source,
-            target,
+            ref,
+            warped_moving,
             mask,
             reduction=reduction,
             weight_mask=weight_mask,
@@ -154,8 +154,8 @@ def main(train_config: TrainConfig):
     if train_config.model_type == "iso":
         model = network.models.NetworkPairwise(
             ndim=3,
-            source_channels=1,
-            target_channels=1,
+            ref_channels=1,
+            moving_channels=1,
             features=train_config.features,
             flow_multiplier=train_config.flow_multiplier,
         ).to(device)
@@ -163,8 +163,8 @@ def main(train_config: TrainConfig):
     elif train_config.model_type == "aniso":
         model = network.models.NetworkPairwiseAnisotropic(
             ndim=3,
-            source_channels=1,
-            target_channels=1,
+            ref_channels=1,
+            moving_channels=1,
             features=train_config.features,
             flow_multiplier=train_config.flow_multiplier,
         ).to(device)

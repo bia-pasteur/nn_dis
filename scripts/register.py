@@ -3,11 +3,11 @@
 """
 Image registration script using VoxelMorph models.
 
-This script registers a source image to a target image using a trained VoxelMorph model,
+This script registers a ref image to a moving image using a trained VoxelMorph model,
 following the workflow from tests_synthetic.ipynb.
 
 Supports both .npy and .tiff/.tif files (via bioio).
-Outputs the warped source image and displacement field.
+Outputs the warped ref image and displacement field.
 
 Example usage:
     python scripts/register.py \
@@ -15,7 +15,7 @@ Example usage:
         --model path/to/model.pt \
         --output_dir path/to/results \
         --channel 2 \
-        --target_d 32 --target_h 128 --target_w 128 \
+        --moving_d 32 --moving_h 128 --moving_w 128 \
         --iterations 7
 
 If you use this code, please cite the appropriate VoxelMorph papers.
@@ -163,15 +163,15 @@ def load_model(
     if model_type == "aniso":
         model = network.models.NetworkPairwiseAnisotropic(
             ndim=3,
-            source_channels=1,
-            target_channels=1,
+            ref_channels=1,
+            moving_channels=1,
             features=features,
         ).to(device)
     else:
         model = network.models.NetworkPairwise(
             ndim=3,
-            source_channels=1,
-            target_channels=1,
+            ref_channels=1,
+            moving_channels=1,
             features=features,
         ).to(device)
 
@@ -242,32 +242,37 @@ def register(
         crop=crop,
     )
 
-    source = (
-        torch.from_numpy(img[1]).unsqueeze(0).unsqueeze(0).to(device)
-    )  # (1, 1, Z, H, W)
-    target = (
+    ref = (
         torch.from_numpy(img[0]).unsqueeze(0).unsqueeze(0).to(device)
     )  # (1, 1, Z, H, W)
+    moving = (
+        torch.from_numpy(img[1]).unsqueeze(0).unsqueeze(0).to(device)
+    )  # (1, 1, Z, H, W)
 
-    warped_source = source
+    warped_moving = moving
+    total_displacement = None
     with torch.no_grad():
         for _ in range(nb_warps):
-            displacement, warped_source = model(
-                warped_source, target, return_warped_source=True
+            displacement, warped_moving = model(
+                ref, warped_moving, return_warped_moving=True
             )
+            if total_displacement is None:
+                total_displacement = displacement
+            else:
+                total_displacement += displacement
 
-    return img, spacing, displacement, warped_source.detach().numpy()[0, 0]
+    return img, spacing, displacement, warped_moving.detach().numpy()[0, 0]
 
 
 # def main():
 #     parser = argparse.ArgumentParser(
-#         description="Register a source image to a target image using VoxelMorph."
+#         description="Register a ref image to a moving image using VoxelMorph."
 #     )
 #     parser.add_argument(
 #         "--input",
 #         required=True,
 #         type=Path,
-#         help="Input image file (.npy or .tiff/.tif) containing both source and target frames",
+#         help="Input image file (.npy or .tiff/.tif) containing both ref and moving frames",
 #     )
 #     parser.add_argument(
 #         "--model",
@@ -292,13 +297,13 @@ def register(
 #         help="Model architecture type",
 #     )
 #     parser.add_argument(
-#         "--target_d", type=int, default=32, help="Target depth dimension"
+#         "--moving_d", type=int, default=32, help="Target depth dimension"
 #     )
 #     parser.add_argument(
-#         "--target_h", type=int, default=128, help="Target height dimension"
+#         "--moving_h", type=int, default=128, help="Target height dimension"
 #     )
 #     parser.add_argument(
-#         "--target_w", type=int, default=128, help="Target width dimension"
+#         "--moving_w", type=int, default=128, help="Target width dimension"
 #     )
 #     parser.add_argument(
 #         "--iterations",
@@ -323,9 +328,9 @@ def register(
 #     print(f"Loading image from {args.input}...")
 #     img_padded, spacing = get_img_spacing(
 #         path_img=args.input,
-#         target_d=args.target_d,
-#         target_h=args.target_h,
-#         target_w=args.target_w,
+#         moving_d=args.moving_d,
+#         moving_h=args.moving_h,
+#         moving_w=args.moving_w,
 #         multiple=16,
 #         channel=args.channel,
 #         default_spacing=tuple(args.default_spacing),
@@ -339,13 +344,13 @@ def register(
 
 #     # Register images
 #     print(f"Running registration with {args.iterations} iterations...")
-#     displacement, warped_source = register_images(
+#     displacement, warped_ref = register_images(
 #         img_padded, model, device, iterations=args.iterations
 #     )
 
 #     # Convert outputs to numpy
 #     displacement_np = displacement.detach().cpu().numpy()
-#     warped_np = warped_source.detach().cpu().numpy()[0, 0]
+#     warped_np = warped_ref.detach().cpu().numpy()[0, 0]
 
 #     # Save displacement field
 #     dis_path = args.output_dir / f"displacement_{args.input.stem}.npy"
