@@ -101,7 +101,7 @@ def epoch_(
         mask = batch["mask"].to(device)
 
         # Get the displacement and the warped ref image from the model
-        displacement, warped_moving = model(ref, moving, return_warped_ref=True)
+        displacement, warped_moving = model(ref, moving, return_warped_moving=True)
 
         img_loss = image_loss_fn(
             ref,
