@@ -5,7 +5,7 @@ train_config:
     batch_size: 8
     lr: 1e-4
     alpha_param: 0.1
-    beta_param: 0.01
+    beta_param: 0.1
     gpu: 0
     save_every: 100
     features: [16, 32, 32, 64, 64]
@@ -13,6 +13,6 @@ train_config:
     model_type: 'aniso'
     train_data: '/pasteur/helix/projects/bia/jlahmani/data/synthetic/train' 
     val_data: '/pasteur/helix/projects/bia/jlahmani/data/synthetic/val'
-    reduction: "weighted_mean"
-    channel: None
+    reduction: "mean"
+    channel: null
     mask: False
