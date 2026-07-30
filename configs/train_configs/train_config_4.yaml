@@ -14,5 +14,5 @@ train_config:
     train_data: '/pasteur/helix/projects/bia/jlahmani/data/synthetic/train' 
     val_data:  '/pasteur/helix/projects/bia/jlahmani/data/synthetic/val'
     reduction: "mean"
-    channel: 0
+    channel: None
     mask: False
