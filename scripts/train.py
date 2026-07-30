@@ -96,16 +96,16 @@ def epoch_(
             optimizer.zero_grad()
 
         # Move to device in training loop (not dataloader/dataset!)
-        ref = batch["ref"].to(device)
-        moving = batch["moving"].to(device)
+        source = batch["source"].to(device)
+        target = batch["target"].to(device)
         mask = batch["mask"].to(device)
 
         # Get the displacement and the warped source image from the model
-        displacement, warped_moving = model(ref, moving, return_warped_source=True)
+        displacement, warped_source = model(source, target, return_warped_source=True)
 
         img_loss = image_loss_fn(
-            ref,
-            warped_moving,
+            warped_source,
+            target,
             mask,
             reduction=reduction,
             weight_mask=weight_mask,
