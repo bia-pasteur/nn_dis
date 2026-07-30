@@ -4,7 +4,7 @@ train_config:
     workers: 6
     batch_size: 10
     lr: 1e-4
-    alpha_param: 0.1
+    alpha_param: 0.2
     beta_param: 0.01
     gpu: 0
     save_every: 100
