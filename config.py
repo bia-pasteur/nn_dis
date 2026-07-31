@@ -34,6 +34,7 @@ class TrainConfig:
     reduction: str
     channel: int | None = None
     mask: bool = False
+    combine: bool = False
 
 
 @dataclass

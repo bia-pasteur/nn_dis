@@ -16,3 +16,4 @@ train_config:
     reduction: "mean"
     channel: null
     mask: False
+    combine: False
