@@ -215,7 +215,7 @@ def main(train_config: TrainConfig):
     )
     synthetic_train_dataset = TractionDataset(
         Path("/pasteur/helix/projects/bia/jlahmani/data/synthetic/train"),
-        transform=get_transforms,
+        transform=get_transforms(),
         channel=None,
         mask=False,
     )
