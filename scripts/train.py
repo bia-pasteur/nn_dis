@@ -183,71 +183,73 @@ def main(train_config: TrainConfig):
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
 
     # Create dataloader
-    # train_dataset = TractionDataset(
-    #     Path(train_config.train_data),
-    #     transform=get_transforms(),
-    #     channel=train_config.channel,
-    #     mask=train_config.mask,
-    # )
-    # train_loader = DataLoader(
-    #     train_dataset,
-    #     batch_size=train_config.batch_size,
-    #     num_workers=train_config.workers,
-    #     shuffle=True,
-    # )
+    if train_config.combine:
+        micro_train_dataset = TractionDataset(
+            Path(train_config.train_data),
+            transform=get_transforms(),
+            channel=train_config.channel,
+            mask=train_config.mask,
+        )
+        synthetic_train_dataset = TractionDataset(
+            Path("/pasteur/helix/projects/bia/jlahmani/data/synthetic/train"),
+            transform=get_transforms(),
+            channel=None,
+            mask=False,
+        )
 
-    # validation_dataset = TractionDataset(
-    #     Path(train_config.val_data),
-    #     channel=train_config.channel,
-    #     mask=train_config.mask,
-    # )
-    # validation_loader = DataLoader(
-    #     validation_dataset,
-    #     batch_size=train_config.batch_size,
-    #     num_workers=train_config.workers,
-    # )
+        train_dataset = ConcatDataset([micro_train_dataset, synthetic_train_dataset])
 
-    micro_train_dataset = TractionDataset(
-        Path(train_config.train_data),
-        transform=get_transforms(),
-        channel=train_config.channel,
-        mask=train_config.mask,
-    )
-    synthetic_train_dataset = TractionDataset(
-        Path("/pasteur/helix/projects/bia/jlahmani/data/synthetic/train"),
-        transform=get_transforms(),
-        channel=None,
-        mask=False,
-    )
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=train_config.batch_size,
+            num_workers=train_config.workers,
+            shuffle=True,
+        )
 
-    train_dataset = ConcatDataset([micro_train_dataset, synthetic_train_dataset])
+        micro_val_dataset = TractionDataset(
+            Path(train_config.val_data),
+            channel=train_config.channel,
+            mask=train_config.mask,
+        )
+        synthetic_val_dataset = TractionDataset(
+            Path("/pasteur/helix/projects/bia/jlahmani/data/synthetic/val"),
+            channel=None,
+            mask=False,
+        )
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=train_config.batch_size,
-        num_workers=train_config.workers,
-        shuffle=True,
-    )
+        val_dataset = ConcatDataset([micro_val_dataset, synthetic_val_dataset])
 
-    micro_val_dataset = TractionDataset(
-        Path(train_config.val_data),
-        channel=train_config.channel,
-        mask=train_config.mask,
-    )
-    synthetic_val_dataset = TractionDataset(
-        Path("/pasteur/helix/projects/bia/jlahmani/data/synthetic/val"),
-        channel=None,
-        mask=False,
-    )
+        validation_loader = DataLoader(
+            val_dataset,
+            batch_size=train_config.batch_size,
+            num_workers=train_config.workers,
+            shuffle=True,
+        )
 
-    val_dataset = ConcatDataset([micro_val_dataset, synthetic_val_dataset])
+    else:
+        train_dataset = TractionDataset(
+            Path(train_config.train_data),
+            transform=get_transforms(),
+            channel=train_config.channel,
+            mask=train_config.mask,
+        )
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=train_config.batch_size,
+            num_workers=train_config.workers,
+            shuffle=True,
+        )
 
-    validation_loader = DataLoader(
-        val_dataset,
-        batch_size=train_config.batch_size,
-        num_workers=train_config.workers,
-        shuffle=True,
-    )
+        validation_dataset = TractionDataset(
+            Path(train_config.val_data),
+            channel=train_config.channel,
+            mask=train_config.mask,
+        )
+        validation_loader = DataLoader(
+            validation_dataset,
+            batch_size=train_config.batch_size,
+            num_workers=train_config.workers,
+        )
 
     # Create output directory
     output_dir = Path(train_config.output_dir)
