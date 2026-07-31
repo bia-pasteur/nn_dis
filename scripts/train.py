@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import ConcatDataset, DataLoader
 from tqdm import tqdm
 
 import network
@@ -183,12 +183,45 @@ def main(train_config: TrainConfig):
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
 
     # Create dataloader
-    train_dataset = TractionDataset(
+    # train_dataset = TractionDataset(
+    #     Path(train_config.train_data),
+    #     transform=get_transforms(),
+    #     channel=train_config.channel,
+    #     mask=train_config.mask,
+    # )
+    # train_loader = DataLoader(
+    #     train_dataset,
+    #     batch_size=train_config.batch_size,
+    #     num_workers=train_config.workers,
+    #     shuffle=True,
+    # )
+
+    # validation_dataset = TractionDataset(
+    #     Path(train_config.val_data),
+    #     channel=train_config.channel,
+    #     mask=train_config.mask,
+    # )
+    # validation_loader = DataLoader(
+    #     validation_dataset,
+    #     batch_size=train_config.batch_size,
+    #     num_workers=train_config.workers,
+    # )
+
+    micro_train_dataset = TractionDataset(
         Path(train_config.train_data),
         transform=get_transforms(),
         channel=train_config.channel,
         mask=train_config.mask,
     )
+    synthetic_train_dataset = TractionDataset(
+        Path("/pasteur/helix/projects/bia/jlahmani/data/synthetic/train"),
+        transform=get_transforms,
+        channel=None,
+        mask=False,
+    )
+
+    train_dataset = ConcatDataset([micro_train_dataset, synthetic_train_dataset])
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=train_config.batch_size,
@@ -196,15 +229,24 @@ def main(train_config: TrainConfig):
         shuffle=True,
     )
 
-    validation_dataset = TractionDataset(
+    micro_val_dataset = TractionDataset(
         Path(train_config.val_data),
         channel=train_config.channel,
         mask=train_config.mask,
     )
+    synthetic_val_dataset = TractionDataset(
+        Path("/pasteur/helix/projects/bia/jlahmani/data/synthetic/val"),
+        channel=None,
+        mask=False,
+    )
+
+    val_dataset = ConcatDataset([micro_val_dataset, synthetic_val_dataset])
+
     validation_loader = DataLoader(
-        validation_dataset,
+        val_dataset,
         batch_size=train_config.batch_size,
         num_workers=train_config.workers,
+        shuffle=True,
     )
 
     # Create output directory

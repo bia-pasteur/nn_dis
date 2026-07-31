@@ -121,6 +121,7 @@ class TractionDataset(Dataset):
 
         if ext == ".npy":
             img_raw = np.load(img_path)
+            self.channel = None
         elif ext in [".tiff", ".tif"]:
             img_raw = tifffile.imread(img_path)
         else:
