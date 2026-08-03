@@ -6,7 +6,7 @@ from scipy.ndimage import zoom
 
 def reshape_img(
     image: np.ndarray,
-    target_d: int,
+    target_d: int = 32,
     target_h: int = 128,
     target_w: int = 128,
     multiple: int = 16,

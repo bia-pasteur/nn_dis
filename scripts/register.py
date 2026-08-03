@@ -261,7 +261,12 @@ def register(
             else:
                 total_displacement += displacement
 
-    return img, spacing, displacement, warped_moving.detach().numpy()[0, 0]
+    return (
+        img,
+        spacing,
+        total_displacement.detach().numpy(),
+        warped_moving.detach().numpy()[0, 0],
+    )
 
 
 # def main():

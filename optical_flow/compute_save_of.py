@@ -1,13 +1,132 @@
+import csv
 import os
 from pathlib import Path
+from typing import Callable, Dict, Tuple
 
 import jsonargparse
 import numpy as np
-import tifffile
 
 from config import OpticalFlowParams, SaveParams
-from optical_flow.algorithms import fista_of, hs_of, tv_l1
-from scripts.utils import reshape_img
+from optical_flow.algorithms import fista_of, hs_of, tv_l1, warp
+from scripts.register import get_img_spacing
+
+
+def rmse_(diff):
+    return float(np.sqrt(np.mean(diff**2)))
+
+
+def save_flow_of(
+    algo: Callable,
+    params: Dict,
+    algo_name: str,
+    folder_img: Path,
+    save_path: Path,
+    target_d: int = 32,
+    target_h: int = 128,
+    target_w: int = 128,
+    multiple: int = 16,
+    channel: int = None,
+    default_spacing: Tuple[float, float, float] = [1.0, 0.13, 0.13],
+    crop: Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]] = None,
+):
+
+    metrics_rows = []
+
+    for path_img in folder_img.iterdir():
+        ext = os.path.splitext(path_img)[1].lower()
+        if ext in [".npy", ".tiff", ".tif"]:
+            img_padded, spacing = get_img_spacing(
+                path_img=path_img,
+                target_d=target_d,
+                target_h=target_h,
+                target_w=target_w,
+                multiple=multiple,
+                channel=channel,
+                default_spacing=default_spacing,
+                crop=crop,
+            )
+
+            mask_padded = img_padded[0] > 0.1
+
+            if algo_name == "fista":
+                dis = algo(img_padded, params, global_flow=True, spacing=spacing)
+                dis_ = dis[:, 1:]
+                dis_final = np.stack(
+                    [dis_[i] * mask_padded for i in range(dis_.shape[0])]
+                )
+                warped_im = warp(img_padded[1], dis_[:, 0], spacing)
+
+            else:
+                dis = algo(img_padded, params, global_flow=True)
+                dis_ = dis[:, 1:]
+                dis_final = np.stack(
+                    [dis_[i] * mask_padded * spacing[i] for i in range(dis_.shape[0])]
+                )
+                warped_im = warp(img_padded[1], dis_[:, 0])
+
+            diff_im = img_padded[1] - img_padded[0]
+            diff_warped = warped_im - img_padded[0]
+
+            norm_I2_I1 = np.linalg.norm(diff_im)
+            norm_warped_I1 = np.linalg.norm(diff_warped)
+
+            rmse_I2_I1 = rmse_(diff_im)
+            rmse_warped_I1 = rmse_(diff_warped)
+
+            metrics_rows.append(
+                {
+                    "model": algo_name,
+                    "image": path_img.name,
+                    "norm_I2_minus_I1": float(norm_I2_I1),
+                    "rmse_I2_minus_I1": float(rmse_I2_I1),
+                    "norm_warped_minus_I1": float(norm_warped_I1),
+                    "rmse_warped_minus_I1": float(rmse_warped_I1),
+                }
+            )
+
+            if save_path is not None:
+                np.save(save_path / f"flow_{algo_name}_{path_img.name}", dis_final)
+                np.save(save_path / f"warped_{algo_name}_{path_img.name}", warped_im)
+                np.save(save_path / f"init_im_{path_img.name}", img_padded)
+
+        mean_row = {
+            "model": algo_name,
+            "image": "MEAN",
+            "norm_I2_minus_I1": float(
+                np.mean([row["norm_I2_minus_I1"] for row in metrics_rows])
+            ),
+            "rmse_I2_minus_I1": float(
+                np.mean([row["rmse_I2_minus_I1"] for row in metrics_rows])
+            ),
+            "norm_warped_minus_I1": float(
+                np.mean([row["norm_warped_minus_I1"] for row in metrics_rows])
+            ),
+            "rmse_warped_I1": float(
+                np.mean([row["rmse_warped_minus_I1"] for row in metrics_rows])
+            ),
+        }
+
+    mean_row["rmse_warped_minus_I1"] = mean_row.pop("rmse_warped_I1")
+    metrics_rows.append(mean_row)
+
+    csv_path = save_path / f"metrics_{algo_name}.csv"
+    print(csv_path)
+
+    fieldnames = [
+        "model",
+        "image",
+        "norm_I2_minus_I1",
+        "rmse_I2_minus_I1",
+        "norm_warped_minus_I1",
+        "rmse_warped_minus_I1",
+    ]
+
+    with open(csv_path, mode="w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(metrics_rows)
+
+    return metrics_rows
 
 
 def main(optical_flow: OpticalFlowParams, save_params: SaveParams):
@@ -21,55 +140,17 @@ def main(optical_flow: OpticalFlowParams, save_params: SaveParams):
         folder (str): Folder containing the images
         save_path (str): Where to save the results
     """
-    folder = Path(save_params.folder)
+
+    fista_params = optical_flow.fista
+    hs_params = optical_flow.hs
+    tvl1_params = optical_flow.tvl1
+
+    folder_img = Path(save_params.folder)
     save_path = Path(save_params.save_path)
-    for path_img in folder.iterdir():
-        ext = os.path.splitext(path_img)[1].lower()
-        if ext == ".npy":
-            img_raw = np.load(path_img)
-        elif ext in [".tiff", ".tif"]:
-            img_raw = tifffile.imread(path_img)
 
-        q1, q99 = np.quantile(img_raw[:, 0], [0.01, 0.99])
-        img = np.clip((img_raw[:, 0] - q1) / (q99 - q1), 0, 1)
-
-        if img.ndim == 4:
-            img_padded = np.stack(
-                [reshape_img(img[0], 32), reshape_img(img[1], 32)], axis=0
-            )
-        else:
-            img_padded = np.stack(
-                [reshape_img(img[0], 32), reshape_img(img[1], 32)], axis=0
-            )
-        mask_padded = img_padded[0] > 0.1
-
-        fista_params = optical_flow.fista
-        hs_params = optical_flow.hs
-        tvl1_params = optical_flow.tvl1
-
-        spacing = fista_params.spacing
-        dis_fista = fista_of(img_padded, fista_params, True)
-        dis_hs = hs_of(img_padded, hs_params, True)
-        dis_tvl1 = tv_l1(img_padded, tvl1_params, True)
-
-        dis_fista_ = dis_fista[:, 1:, :, :, :]
-        dis_fista_final = np.stack(
-            [dis_fista_[i] * mask_padded for i in range(dis_fista_.shape[0])]
-        )
-
-        dis_hs_ = dis_hs[:, 1:, :, :, :]
-        dis_hs_final = np.stack(
-            [dis_hs_[i] * mask_padded * spacing[i] for i in range(dis_hs_.shape[0])]
-        )
-
-        dis_tvl1_ = dis_tvl1[:, 1:, :, :, :]
-        dis_tvl1_final = np.stack(
-            [dis_tvl1_[i] * mask_padded * spacing[i] for i in range(dis_tvl1_.shape[0])]
-        )
-        save_path.mkdir(exist_ok=True)
-        np.save(save_path / f"flow_fista_beads_{path_img.name}", dis_fista_final)
-        np.save(save_path / f"flow_hs_beads_{path_img.name}", dis_hs_final)
-        np.save(save_path / f"flow_tvl1_beads_{path_img.name}", dis_tvl1_final)
+    _ = save_flow_of(hs_of, hs_params, "hs", folder_img, save_path)
+    _ = save_flow_of(tv_l1, tvl1_params, "tvl1", folder_img, save_path)
+    _ = save_flow_of(fista_of, fista_params, "fista", folder_img, save_path)
 
 
 if __name__ == "__main__":
