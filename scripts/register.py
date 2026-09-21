@@ -119,8 +119,10 @@ def get_img_spacing(
     _, orig_h, orig_w = original_shape[1:]
 
     # Quantile normalization
-    q1, q99 = np.quantile(img, [0.01, 0.99])
-    img = np.clip((img - q1) / (q99 - q1), 0, 1)
+    # q1, q99 = np.quantile(img, [0.01, 0.99])
+    # img = np.clip((img - q1) / (q99 - q1), 0, 1)
+
+    img = img / img.max()
 
     # Reshape frames
     img_0_reshaped = reshape_img(img[0], target_d, target_h, target_w, multiple)

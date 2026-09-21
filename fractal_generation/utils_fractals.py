@@ -142,7 +142,7 @@ def generate_pyvista_perlin_displacement(
     u_comps = []
 
     for _ in range(3):
-        phase = (0.0, 0.0, 0.0)
+        phase = tuple(np.random.uniform(0, 1000, size=3))
 
         amplitude = rng.uniform(amplitude_min, amplitude_max)
 
