@@ -115,7 +115,7 @@ def create_full_fractal_image(
 
 
 def main(fractal_params: FractalParams):
-    for seed in fractal_params.seeds:
+    for seed in range(fractal_params.seeds):
         for n_functions in fractal_params.nb_functions:
             img, u = create_full_fractal_image(
                 seed=seed,

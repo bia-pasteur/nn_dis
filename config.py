@@ -9,7 +9,7 @@ class FractalParams:
     """Parameters for fractal image generation"""
 
     save_dir: str
-    seeds: list[int]
+    seeds: int
     nb_functions: list[int]
     nb_iterations: int
     min_singular_value: float
