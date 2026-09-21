@@ -1,5 +1,5 @@
 fractal_params:
-  save_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/data/fractals/perlin'
+  save_dir: '/pasteur/helix/projects/bia/jlahmani/data/fractals/perlin'
   seeds: 100
   nb_functions: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
   nb_iterations: 500000
