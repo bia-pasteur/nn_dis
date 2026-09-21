@@ -2,11 +2,9 @@
 Core model for unsupervised learning of the displacement
 """
 
-from typing import List, Tuple, Union
-
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 
 class SpatialTransformer(nn.Module):
@@ -136,7 +134,7 @@ class DownsampleConvAnisotropic(nn.Module):
             stride=(1, 2, 2) if is_2d else 2,
         )
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         x = self.conv(x)
         return self.pool(x)
 
@@ -170,7 +168,7 @@ class NetworkPairwise(nn.Module):
         ndim: int = 3,
         ref_channels: int = 1,
         moving_channels: int = 1,
-        features: List[int] = [16, 32, 32],
+        features: list[int] = [16, 32, 32],
         flow_multiplier: float = 10,
         device: str = "cpu",
     ):
@@ -223,7 +221,7 @@ class NetworkPairwise(nn.Module):
         ref: torch.Tensor,
         moving: torch.Tensor,
         return_warped_moving: bool = False,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
 
         x = torch.cat([ref, moving], dim=1)
 
@@ -257,7 +255,7 @@ class NetworkPairwiseAnisotropic(nn.Module):
         ndim: int = 3,
         ref_channels: int = 1,
         moving_channels: int = 1,
-        features: List[int] = [16, 32, 32, 64, 64],
+        features: list[int] = [16, 32, 32, 64, 64],
         n_2d_levels: int = 2,
         flow_multiplier: float = 10,
         device: str = "cpu",
@@ -315,7 +313,7 @@ class NetworkPairwiseAnisotropic(nn.Module):
         ref: torch.Tensor,
         moving: torch.Tensor,
         return_warped_moving: bool = False,
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
 
         x = torch.cat([ref, moving], dim=1)
 

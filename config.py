@@ -5,6 +5,31 @@ from typing import List
 
 
 @dataclass
+class FractalParams:
+    """Parameters for fractal image generation"""
+
+    save_dir: str
+    seeds: list[int]
+    nb_functions: list[int]
+    nb_iterations: int
+    min_singular_value: float
+    max_singular_value: float
+    translation_scale: float
+    size_img_x: int
+    size_img_y: int
+    size_img_z: int
+    pad_x: int
+    pad_y: int
+    pad_z: int
+    amplitude_min_dis: float | None
+    amplitude_max_dis: float | None
+    freq_min_dis: float | None
+    freq_max_dis: float | None
+    alpha: float | None
+    sigma: float | None
+
+
+@dataclass
 class DatasetCreation:
     """Parameters for dataset creation"""
 

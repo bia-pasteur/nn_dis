@@ -7,7 +7,7 @@ import jsonargparse
 import numpy as np
 
 from config import OpticalFlowParams, SaveParams
-from optical_flow.algorithms import fista_of, hs_of, tv_l1, warp
+from optical_flow.algorithms import fista_of, warp
 from scripts.register import get_img_spacing
 
 
@@ -26,7 +26,7 @@ def save_flow_of(
     target_w: int = 128,
     multiple: int = 16,
     channel: int = None,
-    default_spacing: Tuple[float, float, float] = [1.0, 0.13, 0.13],
+    default_spacing: Tuple[float, float, float] = None,
     crop: Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]] = None,
 ):
 
@@ -42,13 +42,14 @@ def save_flow_of(
                 target_w=target_w,
                 multiple=multiple,
                 channel=channel,
-                default_spacing=default_spacing,
+                default_spacing=[1.0, 0.13, 0.13],  # default_spacing,
                 crop=crop,
             )
 
             mask_padded = img_padded[0] > 0.1
 
             if algo_name == "fista":
+                print("new fista image")
                 dis = algo(img_padded, params, global_flow=True, spacing=spacing)
                 dis_ = dis[:, 1:]
                 dis_final = np.stack(
@@ -148,8 +149,8 @@ def main(optical_flow: OpticalFlowParams, save_params: SaveParams):
     folder_img = Path(save_params.folder)
     save_path = Path(save_params.save_path)
 
-    _ = save_flow_of(hs_of, hs_params, "hs", folder_img, save_path)
-    _ = save_flow_of(tv_l1, tvl1_params, "tvl1", folder_img, save_path)
+    # _ = save_flow_of(hs_of, hs_params, "hs", folder_img, save_path)
+    # _ = save_flow_of(tv_l1, tvl1_params, "tvl1", folder_img, save_path)
     _ = save_flow_of(fista_of, fista_params, "fista", folder_img, save_path)
 
 

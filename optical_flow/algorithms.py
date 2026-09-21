@@ -2,7 +2,6 @@
 
 # pylint: disable=invalid-name
 import warnings
-from typing import List, Tuple, Union
 
 import cv2
 import numba
@@ -16,7 +15,7 @@ from skimage.registration import (  # pylint: disable=no-name-in-module
     optical_flow_ilk,
     optical_flow_tvl1,
 )
-from skimage.transform import rescale
+from skimage.transform import resize
 
 from config import FarnebackParams, FistaParams, HSParams, ILKParams, TVL1Params
 
@@ -27,7 +26,7 @@ warnings.filterwarnings(
 ### Functions related to FISTA Optical Flow with multiscale approach
 
 
-def A(img, spacing=None):
+def A(img: np.ndarray, spacing: tuple[int] = None):
     """
     Computes A such that A @ h = nabla_I ⋅ h
 
@@ -50,8 +49,8 @@ def A(img, spacing=None):
 
 @numba.njit()
 def nabla_block(
-    S: Tuple[int, ...], axis=0, offset_i=0, offset_j=0, scale=0
-) -> Tuple[List[int], List[int], List[int]]:
+    S: tuple[int, ...], axis=0, offset_i=0, offset_j=0, scale=0
+) -> tuple[list[int], list[int], list[int]]:
     """
     Constructs the sparse representation (row, col, value lists) of a discrete forward finite-difference
     operator along a single spatial axis for a given multidimensional grid.
@@ -106,7 +105,7 @@ def nabla_block(
     return rows, cols, values
 
 
-def nabla(C, S: Tuple[int, ...], spacing=None):
+def nabla(C, S: tuple[int, ...], spacing=None):
     """
     Constructs a full sparse gradient operator for a given multidimensional domain and
     number of channels.
@@ -183,7 +182,11 @@ def compute_Q(
 
 
 def compute_lip(
-    img: np.ndarray, alpha: float, beta: float, nabla_for_L: sp.spmatrix, spacing=None
+    img: np.ndarray,
+    alpha: float,
+    beta: float,
+    nabla_for_L: sp.spmatrix,
+    spacing: tuple[int] = None,
 ):
     """
     Computes the best Lipschitz constant L of the gradient of the function
@@ -204,7 +207,7 @@ def compute_lip(
     return sp.linalg.norm(Q, ord=2)
 
 
-def warp(image: np.ndarray, flow: np.ndarray, spacing=None) -> np.ndarray:
+def warp(image: np.ndarray, flow: np.ndarray, spacing: tuple[int] = None) -> np.ndarray:
     """
     Warps a multi dimensionnal image using an optical flow
 
@@ -252,7 +255,7 @@ def warp(image: np.ndarray, flow: np.ndarray, spacing=None) -> np.ndarray:
     )
 
 
-def resize_flow(flow, shape):
+def resize_flow(flow: np.ndarray, shape: tuple[float]) -> np.ndarray:
     """
     Rescales the values of the vector field (u, v) to the desired shape.
     The values of the output vector field are scaled to the new resolution.
@@ -283,25 +286,51 @@ def resize_flow(flow, shape):
     return rflow
 
 
-def get_pyramid(image, spacing=None, downscale=2.0, nlevel=10, min_size=16):
+def _pyramid_reduce_anisotropic(
+    image: np.ndarray,
+    scale_factors: tuple[float],
+    order: int = 1,
+    mode: str = "reflect",
+    cval: int = 0,
+):
+    scale_factors = np.asarray(scale_factors, dtype=float)
+    sigma = 2 * scale_factors / 6.0
+    smoothed = ndi.gaussian_filter(image, sigma=sigma, mode=mode, cval=cval)
+
+    out_shape = tuple(
+        max(1, int(np.ceil(s * f))) for s, f in zip(image.shape, scale_factors)
+    )
+    out = resize(
+        smoothed,
+        out_shape,
+        order=order,
+        mode=mode,
+        cval=cval,
+        anti_aliasing=False,
+    )
+    return out
+
+
+def get_pyramid(
+    image: np.ndarray,
+    spacing: float = None,
+    downscale: float = 2.0,
+    nlevel: int = 10,
+    min_size: int = 16,
+):
     """
-    Construct image pyramid.
+    Construct image pyramid with anisotropic scaling while using pyramid_reduce for speed.
 
     Args:
         image (np.ndarray): The image to be preprocessed (Gray scale or RGB)
-            Shape: # A compléter
         spacing (tuple or list, optional): voxel size along each axis
         downscale (float): The pyramid downscale factor
-            Default: 2
         nlevel (int): The maximum number of pyramid levels
-            Default: 10
         min_size (int): The minimum size for any dimension of the pyramid levels
-            Default: 16
 
-    Returns :
-        list[ndarray]: The coarse to fine images pyramid
+    Returns:
+        list[tuple]: List of (image, spacing) tuples from coarse to fine
     """
-
     d = image.ndim
     if spacing is None:
         spacing = (1.0,) * d
@@ -314,27 +343,21 @@ def get_pyramid(image, spacing=None, downscale=2.0, nlevel=10, min_size=16):
 
     while count < nlevel:
         current_shape = np.array(current_image.shape, dtype=float)
-
         scale_factors = np.ones(d)
         smallest = True
 
         for i in range(d):
-            if current_shape[i] / downscale >= min_size:
+            if (current_shape[i] / downscale) >= min_size:
                 scale_factors[i] = 1.0 / downscale
                 smallest = False
 
         if smallest:
             break
 
-        new_image = rescale(
-            current_image,
-            scale=scale_factors,
-            anti_aliasing=True,
-            preserve_range=True,
-            channel_axis=-1 if (image.ndim > d) else None,
-        )
+        new_image = _pyramid_reduce_anisotropic(current_image, scale_factors)
 
-        new_spacing = current_spacing / scale_factors
+        actual_scale_factors = np.array(current_image.shape) / np.array(new_image.shape)
+        new_spacing = current_spacing * actual_scale_factors
 
         pyramid.append((new_image, tuple(new_spacing)))
         current_image = new_image
@@ -342,6 +365,67 @@ def get_pyramid(image, spacing=None, downscale=2.0, nlevel=10, min_size=16):
         count += 1
 
     return pyramid[::-1]
+
+
+# def get_pyramid(image, spacing=None, downscale=2.0, nlevel=10, min_size=16):
+#     """
+#     Construct image pyramid.
+
+#     Args:
+#         image (np.ndarray): The image to be preprocessed (Gray scale or RGB)
+#             Shape: # A compléter
+#         spacing (tuple or list, optional): voxel size along each axis
+#         downscale (float): The pyramid downscale factor
+#             Default: 2
+#         nlevel (int): The maximum number of pyramid levels
+#             Default: 10
+#         min_size (int): The minimum size for any dimension of the pyramid levels
+#             Default: 16
+
+#     Returns :
+#         list[ndarray]: The coarse to fine images pyramid
+#     """
+
+#     d = image.ndim
+#     if spacing is None:
+#         spacing = (1.0,) * d
+
+#     current_image = image.astype(float)
+#     current_spacing = np.array(spacing, dtype=float)
+
+#     pyramid = [(current_image, tuple(current_spacing))]
+#     count = 1
+
+#     while count < nlevel:
+#         current_shape = np.array(current_image.shape, dtype=float)
+
+#         scale_factors = np.ones(d)
+#         smallest = True
+
+#         for i in range(d):
+#             if current_shape[i] / downscale >= min_size:
+#                 scale_factors[i] = 1.0 / downscale
+#                 smallest = False
+
+#         if smallest:
+#             break
+
+#         new_image = rescale(
+#             current_image,
+#             scale=scale_factors,
+#             anti_aliasing=True,
+#             preserve_range=True,
+#             channel_axis=-1 if (image.ndim > d) else None,
+#         )
+
+#         new_spacing = current_spacing / scale_factors
+
+#         pyramid.append((new_image, tuple(new_spacing)))
+#         current_image = new_image
+#         current_spacing = new_spacing
+#         count += 1
+
+#     return pyramid[::-1]
 
 
 def forward_diff(f: np.ndarray, axis: int, spacing: float = 1.0) -> np.ndarray:
@@ -742,8 +826,8 @@ def fista(
     num_iter: int = 100,
     num_warp: int = 2,
     num_pyramid: int = 10,
-    pyramid_downscale: Union[float, np.ndarray] = 2.0,
-    pyramid_min_size: Union[int, np.ndarray] = 16,
+    pyramid_downscale: float | np.ndarray = 2.0,
+    pyramid_min_size: int | np.ndarray = 16,
     eps: float = 1e-5,
     spacing=None,
 ) -> np.ndarray:
@@ -821,8 +905,8 @@ def fista(
 
     (coarse_ref, spacing_coarse) = pyramid_[0][0]
     (coarse_mov, _) = pyramid_[0][1]
-
     # Compute optical flow at the coarsest pyramid level
+
     h = _fista(
         coarse_ref,
         coarse_mov,
@@ -834,11 +918,9 @@ def fista(
         eps=eps,
         spacing=spacing_coarse,
     )
-
     # Progressively refine the optical flow up the pyramid levels
     for (pyr_ref, spacing_ref), (pyr_mov, _) in pyramid_[1:]:
         h = resize_flow(h, pyr_ref.shape)
-
         h = _fista(
             pyr_ref,
             pyr_mov,
@@ -1030,8 +1112,8 @@ def hs_optical_flow(
     num_iter=100,
     num_warp=2,
     num_pyramid=10,
-    pyramid_downscale: Union[float, np.ndarray] = 2.0,
-    pyramid_min_size: Union[int, np.ndarray] = 16,
+    pyramid_downscale: float | np.ndarray = 2.0,
+    pyramid_min_size: int | np.ndarray = 16,
     eps=1e-5,
     w=1.0,
 ):
@@ -1136,7 +1218,7 @@ def hs_optical_flow(
 
 
 def fista_of(
-    img: np.ndarray, fista_params: FistaParams, global_flow: bool, spacing: Tuple[float]
+    img: np.ndarray, fista_params: FistaParams, global_flow: bool, spacing: tuple[float]
 ) -> np.ndarray:
     """
     Computes optical flow between consecutive frames of an image sequence using FISTA.

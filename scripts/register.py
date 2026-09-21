@@ -23,7 +23,6 @@ If you use this code, please cite the appropriate VoxelMorph papers.
 
 import os
 from pathlib import Path
-from typing import List, Tuple
 
 import numpy as np
 import torch
@@ -44,14 +43,15 @@ importlib.reload(network.models)
 
 def get_img_spacing(
     path_img: Path,
+    load_ugt: bool = False,
     target_d: int = 32,
     target_h: int = 128,
     target_w: int = 128,
     multiple: int = 16,
-    channel: int = None,
-    default_spacing: Tuple[float, float, float] = None,
-    crop: Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]] = None,
-) -> Tuple[np.ndarray, Tuple[float, float, float]]:
+    channel: int | None = None,
+    default_spacing: tuple[float, float, float] | None = None,
+    crop: tuple[tuple[int, int], tuple[int, int], tuple[int, int]] | None = None,
+) -> tuple[np.ndarray, tuple[float, float, float]]:
     """
     Load and preprocess an image pair for registration.
 
@@ -142,7 +142,7 @@ def get_img_spacing(
 def load_model(
     folder_path: str,
     model_type: str = "aniso",
-    features: List[int] = [16, 32, 32, 64, 64],
+    features: list[int] = [16, 32, 32, 64, 64],
 ) -> torch.nn.Module:
     """
     Load a trained VoxelMorph model from a checkpoint.
@@ -182,20 +182,25 @@ def load_model(
     return model
 
 
+def compose_flows(transformer, flow1, flow2):
+    warped_flow2 = transformer(flow2, flow1)
+    return flow1 + warped_flow2
+
+
 def register(
     img_path: Path,
     folder_path: Path,
     model_type: str = "aniso",
-    features: List[int] = [16, 32, 32, 64, 64],
+    features: list[int] = [16, 32, 32, 64, 64],
     nb_warps: int = 5,
-    channel: int = None,
-    default_spacing: List[float] = None,
+    channel: int | None = None,
+    default_spacing: list[float] | None = None,
     target_d: int = 32,
     target_h: int = 128,
     target_w: int = 128,
     multiple: int = 16,
-    crop: Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]] = None,
-) -> Tuple[np.ndarray, Tuple[float, float, float], torch.Tensor, np.ndarray]:
+    crop: tuple[tuple[int, int], tuple[int, int], tuple[int, int]] | None = None,
+) -> tuple[np.ndarray, tuple[float, float, float], torch.Tensor, np.ndarray]:
     """
     Register a moving image to a reference image using a trained VoxelMorph model.
 
@@ -251,6 +256,16 @@ def register(
 
     warped_moving = moving
     total_displacement = None
+    # with torch.no_grad():
+    #     for _ in range(nb_warps):
+    #         displacement, warped_moving = model(
+    #             ref, warped_moving, return_warped_moving=True
+    #         )
+    #         if total_displacement is None:
+    #             total_displacement = displacement
+    #         else:
+    #             total_displacement += displacement
+
     with torch.no_grad():
         for _ in range(nb_warps):
             displacement, warped_moving = model(
@@ -259,7 +274,9 @@ def register(
             if total_displacement is None:
                 total_displacement = displacement
             else:
-                total_displacement += displacement
+                total_displacement = compose_flows(
+                    model.transformer, total_displacement, displacement
+                )
 
     return (
         img,
