@@ -55,7 +55,7 @@ def create_full_fractal_image(
     )
     rng = np.random.default_rng(seed)
 
-    reference = generate_fractal_image(
+    moving = generate_fractal_image(
         rng=rng,
         n_functions=n_functions,
         min_singular_value=min_singular_value,
@@ -70,7 +70,7 @@ def create_full_fractal_image(
         nb_iterations=nb_iterations,
     )
 
-    shape = reference.shape
+    shape = moving.shape
 
     if has_all_perlin:
         u = generate_pyvista_perlin_displacement(
@@ -107,7 +107,7 @@ def create_full_fractal_image(
 
     indices = [new_z, new_y, new_x]
 
-    moving = map_coordinates(reference, indices, order=3, mode="reflect")
+    reference = map_coordinates(moving, indices, order=3, mode="reflect")
 
     img = np.stack([reference, moving], axis=0)
 

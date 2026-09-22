@@ -112,8 +112,8 @@ def get_img_spacing(
             img = img_raw.data
 
     if crop is not None:
-        (d_start, d_end), (h_start, h_end), (w_start, w_end) = crop
-        img = img[:, d_start:d_end, h_start:h_end, w_start:w_end]
+        (t_start, t_end), (d_start, d_end), (h_start, h_end), (w_start, w_end) = crop
+        img = img[t_start:t_end, d_start:d_end, h_start:h_end, w_start:w_end]
 
     original_shape = img.shape  # (T, D, H, W)
     _, orig_h, orig_w = original_shape[1:]
@@ -122,11 +122,11 @@ def get_img_spacing(
     # q1, q99 = np.quantile(img, [0.01, 0.99])
     # img = np.clip((img - q1) / (q99 - q1), 0, 1)
 
-    img = img / img.max()
+    img = np.clip(img / img.max(), 0, 1)
 
     # Reshape frames
     img_0_reshaped = reshape_img(img[0], target_d, target_h, target_w, multiple)
-    img_1_reshaped = reshape_img(img[1], target_d, target_h, target_w, multiple)
+    img_1_reshaped = reshape_img(img[-1], target_d, target_h, target_w, multiple)
 
     # Compute new spacing after reshaping
     new_spacing = (

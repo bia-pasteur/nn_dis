@@ -129,6 +129,6 @@ class IFSFunction3D:
         np.add.at(image, (zs, ys, xs), 1)
 
         image = image / image.max()
-        image = image * 255.0
+        # image = image * 255.0
 
         return image
