@@ -126,7 +126,7 @@ def get_img_spacing(
 
     # Reshape frames
     img_0_reshaped = reshape_img(img[0], target_d, target_h, target_w, multiple)
-    img_1_reshaped = reshape_img(img[-1], target_d, target_h, target_w, multiple)
+    img_1_reshaped = reshape_img(img[1], target_d, target_h, target_w, multiple)
 
     # Compute new spacing after reshaping
     new_spacing = (

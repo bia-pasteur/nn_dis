@@ -3,14 +3,13 @@ from types import SimpleNamespace
 
 import napari
 import numpy as np
-import torch
 import yaml
 
 from optical_flow.algorithms import fista_of, hs_of, warp
 from scripts.register import get_img_spacing, register
 from scripts.utils import reshape_img
 
-# RESULTS_FOLDER = "/Users/josephinelahmani/helix_mount/nn_dis/results/train_1"
+RESULTS_FOLDER = "/Users/josephinelahmani/helix_mount/nn_dis/results/train_1"
 SAVE_PATH = Path("/Users/josephinelahmani/Desktop/nn_dis")
 BASE_FOLDER = Path("/Users/josephinelahmani/Desktop/nn_dis/tests")
 NAME_IMG_Z = "E_1000_nu_0.4_nb_zones_1_test_z_img.npy"
@@ -159,7 +158,7 @@ def get_img_flows(
                 img_path=base_folder / name_img,
                 folder_path=results_folder,
                 model_type="aniso",
-                nb_warps=1,
+                nb_warps=5,
                 default_spacing=[1.0, 0.13, 0.13],
             )
     else:
@@ -177,13 +176,10 @@ def get_img_flows(
                 img_path=base_folder / name_img,
                 folder_path=results_folder,
                 model_type="aniso",
-                nb_warps=1,
+                nb_warps=5,
                 default_spacing=[1.0, 0.13, 0.13],
             )
-            h_vxm_raw = np.transpose(h_vxm_raw, (1, 0, 2, 3, 4))
-            h_vxm = np.stack(
-                [h_vxm_raw[i] / spacing[i] for i in range(h_vxm_raw.shape[0])]
-            )
+            h_vxm = np.transpose(h_vxm_raw, (1, 0, 2, 3, 4))
             mask = img[0] > 0.1
             h_vxm_masked = np.stack([h_vxm[i] * mask for i in range(h_vxm.shape[0])])
 
@@ -211,6 +207,8 @@ def add_flows_viewer(
     ax: int,
     viewer: napari.Viewer,
     spacing: tuple[float, float, float],
+    vmin: float,
+    vmax: float,
 ) -> None:
     """
     Add a flow visualization on a given ax to a napari viewer.
@@ -233,6 +231,7 @@ def add_flows_viewer(
         scale=spacing,
         colormap="cividis",
         interpolation3d="nearest",
+        contrast_limits=(vmin, vmax),
     )
     img.colorbar.visible = True
 
@@ -243,6 +242,8 @@ def get_viewer_flows(
     flows_name: list[str],
     spacing: tuple[float, float, float],
     axes: list[int],
+    vmin: float,
+    vmax: float,
 ):
     """
     Create a napari viewer to observe an image and the different displacement
@@ -264,72 +265,11 @@ def get_viewer_flows(
 
     for i, flow in enumerate(flows):
         for ax in axes:
-            add_flows_viewer(flow, flows_name[i], ax, viewer, spacing)
+            add_flows_viewer(
+                flow, flows_name[i], ax, viewer, spacing, vmin=vmin, vmax=vmax
+            )
 
     napari.run()
-
-
-def warp_vxm_versop(
-    moving: np.ndarray | torch.Tensor,
-    displacement: np.ndarray | torch.Tensor,
-    mode: str = "bilinear",
-) -> torch.Tensor:
-    """
-    Warp a displacement field on an image as used in the VoxelMorph network.
-
-    Args:
-        moving (np.ndarray | torch.tensor): The image.
-        displacement (np.ndarray | torch.tensor): The displacement field.
-        mode (str, optional): Mode of interpolation. Defaults to "bilinear".
-
-    Returns:
-        torch.tensor: Warped image.
-    """
-    if not torch.is_tensor(moving):
-        moving = torch.as_tensor(moving, dtype=torch.float32)
-    if moving.ndim == 3:  # D,H,W
-        moving = moving.unsqueeze(0).unsqueeze(0)
-    elif moving.ndim == 4:  # C,D,H,W
-        moving = moving.unsqueeze(0)
-
-    if not torch.is_tensor(displacement):
-        displacement = torch.as_tensor(
-            displacement, dtype=moving.dtype, device=moving.device
-        )
-    else:
-        displacement = displacement.to(dtype=moving.dtype, device=moving.device)
-
-    if displacement.ndim == 4:  # 3,D,H,W
-        displacement = displacement.unsqueeze(0)
-
-    shape = moving.shape[2:]
-    ndim = len(shape)
-
-    axes = [
-        torch.arange(0, s, dtype=displacement.dtype, device=displacement.device)
-        for s in shape
-    ]
-
-    meshgrid = torch.stack(torch.meshgrid(*axes, indexing="ij"), dim=0).contiguous()
-
-    new_locs = meshgrid + displacement
-
-    sizes = torch.tensor(shape, dtype=displacement.dtype, device=displacement.device)
-
-    scales = 2.0 / (sizes - 1).clamp(min=1)
-    broadcast_shape = (ndim,) + (1,) * len(shape)
-    scales = scales.view(broadcast_shape)
-
-    grid = new_locs * scales - 1.0
-
-    grid = grid.flip(
-        dims=(1,)
-    )  # Convert from ij (z,y,x) to (x,y,z) convention for grid_sample
-    grid = grid.permute(0, 2, 3, 4, 1)  # To have a (N, D, H, W, C) shape
-
-    return torch.nn.functional.grid_sample(
-        moving, grid, mode=mode, padding_mode="reflection", align_corners=True
-    )
 
 
 def warped_img(
@@ -351,28 +291,6 @@ def warped_img(
         warp(img[1], h_fista[:, 0]),
         warp(img[1], h_hs[:, 0]),
         warp(img[1], h_vxm[:, 0]),
-    )
-
-
-def warped_img_vxm_warping(
-    img: np.ndarray, h_fista: np.ndarray, h_hs: np.ndarray, h_vxm: np.ndarray
-) -> list[np.ndarray]:
-    """
-    Warp the moving image with all displacement fields, using the warping used in VXM.
-
-    Args:
-        img (np.ndarray): The image.
-        h_fista (np.ndarray): FISTA displacement field.
-        h_hs (np.ndarray): HS displacement field.
-        h_vxm (np.ndarray): VXM displacement field.
-
-    Returns:
-        list[np.ndarray]: The tree warped images.
-    """
-    return (
-        warp_vxm_versop(img[1], h_fista[:, 0]),
-        warp_vxm_versop(img[1], h_hs[:, 0]),
-        warp_vxm_versop(img[1], h_vxm[:, 0]),
     )
 
 
@@ -405,38 +323,95 @@ def get_viewer_warped_img(
     napari.run()
 
 
-# (
+def rmse_(diff):
+    return np.sqrt(np.mean(diff**2))
+
+
+def get_metrics(
+    img, u_gt, h_fista, h_hs, h_vxm, h_fista_masked, h_hs_masked, h_vxm_masked
+):
+    diff_im = img[1] - img[0]
+    warped_fista, warped_hs, warped_vxm = warped_img(img, h_fista, h_hs, h_vxm)
+    diff_w_f = warped_fista - img[0]
+    diff_u_f = h_fista_masked - u_gt[:, np.newaxis]
+    diff_w_hs = warped_hs - img[0]
+    diff_u_hs = h_hs_masked - u_gt[:, np.newaxis]
+    diff_w_vxm = warped_vxm - img[0]
+    diff_u_vxm = h_vxm_masked - u_gt[:, np.newaxis]
+
+    print("Norms")
+    print("I2 - I1:", np.linalg.norm(diff_im))
+    print("warped_fista - I1:", np.linalg.norm(diff_w_f))
+    print("h_fista - ugt:", np.linalg.norm(diff_u_f))
+    print("warped_hs - I1:", np.linalg.norm(diff_w_hs))
+    print("h_hs - ugt:", np.linalg.norm(diff_u_hs))
+    print("warped_vxm - I1:", np.linalg.norm(diff_w_vxm))
+    print("h_vxm - ugt:", np.linalg.norm(diff_u_vxm))
+
+    print("RMSE")
+    print("I2 - I1:", rmse_(diff_im))
+    print("warped_fista - I1:", rmse_(diff_w_f))
+    print("h_fista - ugt", rmse_(diff_u_f))
+    print("warped_hs - I1:", rmse_(diff_w_hs))
+    print("h_hs - ugt:", rmse_(diff_u_hs))
+    print("warped_vxm - I1:", rmse_(diff_w_vxm))
+    print("h_vxm - ugt:", rmse_(diff_u_vxm))
+
+
+(
+    img_x,
+    u_gt_x,
+    spacing_x,
+    h_fista_x,
+    h_fista_masked_x,
+    h_hs_x,
+    h_hs_masked_x,
+    h_vxm_x,
+    h_vxm_masked_x,
+) = get_img_flows(
+    BASE_FOLDER,
+    NAME_IMG_X,
+    results_folder=RESULTS_FOLDER,
+    # save_path=SAVE_PATH,
+)
+
+# get_metrics(
 #     img_x,
 #     u_gt_x,
-#     spacing_x,
 #     h_fista_x,
-#     h_fista_masked_x,
 #     h_hs_x,
-#     h_hs_masked_x,
 #     h_vxm_x,
+#     h_fista_masked_x,
+#     h_hs_masked_x,
 #     h_vxm_masked_x,
-# ) = get_img_flows(
-#     BASE_FOLDER,
-#     NAME_IMG_X,
-#     # results_folder=RESULTS_FOLDER,
-#     # save_path=SAVE_PATH,
 # )
 
-# (
+(
+    img_z,
+    u_gt_z,
+    spacing_z,
+    h_fista_z,
+    h_fista_masked_z,
+    h_hs_z,
+    h_hs_masked_z,
+    h_vxm_z,
+    h_vxm_masked_z,
+) = get_img_flows(
+    BASE_FOLDER,
+    NAME_IMG_Z,
+    results_folder=RESULTS_FOLDER,
+    # save_path=SAVE_PATH,
+)
+
+# get_metrics(
 #     img_z,
 #     u_gt_z,
-#     spacing_z,
 #     h_fista_z,
-#     h_fista_masked_z,
 #     h_hs_z,
-#     h_hs_masked_z,
 #     h_vxm_z,
-#     h_vxm_masked_z,
-# ) = get_img_flows(
-#     BASE_FOLDER,
-#     NAME_IMG_Z,
-#     # results_folder=RESULTS_FOLDER,
-#     # save_path=SAVE_PATH,
+#     h_fista_masked_z,
+#     h_hs_masked_z,
+#     h_vxm_masked_x,
 # )
 
 # (
@@ -452,28 +427,28 @@ def get_viewer_warped_img(
 # ) = get_img_flows(
 #     BASE_FOLDER,
 #     NAME_IMG_4_ZONES,
-#     # results_folder=RESULTS_FOLDER,
-#     # save_path=SAVE_PATH,
+#     results_folder=RESULTS_FOLDER,
+# save_path=SAVE_PATH,
 # )
 
-# flows_x = [
-#     u_gt_x[:, np.newaxis],
-#     h_hs_x,
-#     h_hs_masked_x,
-#     h_fista_x,
-#     h_fista_masked_x,
-#     h_vxm_x,
-#     h_vxm_masked_x,
-# ]
-# flows_z = [
-#     u_gt_z[:, np.newaxis],
-#     h_hs_z,
-#     h_hs_masked_z,
-#     h_fista_z,
-#     h_fista_masked_z,
-#     h_vxm_z,
-#     h_vxm_masked_z,
-# ]
+flows_x = [
+    u_gt_x[:, np.newaxis],
+    h_hs_x,
+    h_hs_masked_x,
+    h_fista_x,
+    h_fista_masked_x,
+    h_vxm_x,
+    h_vxm_masked_x,
+]
+flows_z = [
+    u_gt_z[:, np.newaxis],
+    h_hs_z,
+    h_hs_masked_z,
+    h_fista_z,
+    h_fista_masked_z,
+    h_vxm_z,
+    h_vxm_masked_z,
+]
 # flows_4 = [
 #     u_gt_4[:, np.newaxis],
 #     h_hs_4,
@@ -483,10 +458,19 @@ def get_viewer_warped_img(
 #     h_vxm_4,
 #     h_vxm_masked_4,
 # ]
-# flows_name = ["GT", "HS", "HS masked", "FISTA", "FISTA masked", "VXM", "VXM masked"]
 
-# get_viewer_flows(img_x, flows_x, flows_name, spacing_x, axes=[2])
-# get_viewer_warped_img(img_x, spacing_x, h_fista_x, h_hs_x, h_vxm_x)
+flows_name = ["GT", "HS", "HS masked", "FISTA", "FISTA masked", "VXM", "VXM masked"]
+
+get_viewer_flows(
+    img_x,
+    flows_x,
+    flows_name,
+    spacing_x,
+    axes=[2],
+    vmin=u_gt_x.min(),
+    vmax=u_gt_x.max(),
+)
+get_viewer_warped_img(img_x, spacing_x, h_fista_x, h_hs_x, h_vxm_x)
 
 # get_viewer_flows(img_z, flows_z, flows_name, spacing_z, axes=[0])
 # get_viewer_warped_img(img_z, spacing_z, h_fista_z, h_hs_z, h_vxm_z)
@@ -494,12 +478,12 @@ def get_viewer_warped_img(
 # get_viewer_flows(img_4, flows_4, flows_name, spacing_4, axes=[0])
 # get_viewer_warped_img(img_4, spacing_4, h_fista_4, h_hs_4, h_vxm_4)
 
-path_img = BASE_FOLDER / NAME_IMG_4_ZONES
+# path_img = BASE_FOLDER / NAME_IMG_4_ZONES
 
-img, spacing = get_img_spacing(
-    path_img=path_img,
-    default_spacing=[1.0, 0.13, 0.13],
-)
-viewer = napari.Viewer()
-viewer.add_image(img, scale=[1.0, 0.13, 0.13])
-napari.run()
+# img, spacing = get_img_spacing(
+#     path_img=path_img,
+#     default_spacing=[1.0, 0.13, 0.13],
+# )
+# viewer = napari.Viewer()
+# viewer.add_image(img, scale=[1.0, 0.13, 0.13])
+# napari.run()

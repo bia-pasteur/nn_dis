@@ -135,8 +135,8 @@ class TractionDataset(Dataset):
         img = np.clip((data - q1) / (q99 - q1), 0, 1)  # (2, Z, H, W)
 
         # Extract reference and moving images (I1 -> I2)
-        ref_numpy = img[1]  # img[0]
-        moving_numpy = img[0]  # img[1]
+        ref_numpy = img[0]
+        moving_numpy = img[1]
 
         ref = reshape_img(ref_numpy, self.max_depth)  # (Z, H, W)
         moving = reshape_img(moving_numpy, self.max_depth)  # (Z, H, W)
