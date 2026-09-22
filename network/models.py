@@ -8,7 +8,7 @@ from torch import nn
 
 
 class SpatialTransformer(nn.Module):
-    def __init__(self, mode: str = "bilinear"):
+    def __init__(self, mode: str = "nearest"):  # mode = "bilinear" d'habitude
         super().__init__()
         self.mode = mode
 
@@ -45,7 +45,7 @@ class SpatialTransformer(nn.Module):
         grid = grid.permute(0, 2, 3, 4, 1)  # To have a (N, D, H, W, C) shape
 
         return F.grid_sample(
-            moving, grid, mode=self.mode, padding_mode="zeros", align_corners=False
+            moving, grid, mode=self.mode, padding_mode="reflection", align_corners=True
         )
 
 

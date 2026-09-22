@@ -461,15 +461,16 @@ flows_z = [
 
 flows_name = ["GT", "HS", "HS masked", "FISTA", "FISTA masked", "VXM", "VXM masked"]
 
-get_viewer_flows(
-    img_x,
-    flows_x,
-    flows_name,
-    spacing_x,
-    axes=[2],
-    vmin=u_gt_x.min(),
-    vmax=u_gt_x.max(),
-)
+# get_viewer_flows(
+#     img_x,
+#     flows_x,
+#     flows_name,
+#     spacing_x,
+#     axes=[2],
+#     vmin=u_gt_x.min(),
+#     vmax=u_gt_x.max(),
+# )
+
 get_viewer_warped_img(img_x, spacing_x, h_fista_x, h_hs_x, h_vxm_x)
 
 # get_viewer_flows(img_z, flows_z, flows_name, spacing_z, axes=[0])
