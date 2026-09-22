@@ -12,112 +12,43 @@ class SpatialTransformer(nn.Module):
         super().__init__()
         self.mode = mode
 
-    # def forward(
-    #     self,
-    #     moving: torch.Tensor,
-    #     displacement: torch.Tensor,
-    # ) -> torch.Tensor:
-    #     shape = moving.shape[2:]
-    #     ndim = len(shape)
-
-    #     axes = [
-    #         torch.arange(0, s, dtype=displacement.dtype, device=displacement.device)
-    #         for s in shape
-    #     ]
-
-    #     meshgrid = torch.stack(torch.meshgrid(*axes, indexing="ij"), dim=0).contiguous()
-
-    #     new_locs = meshgrid + displacement
-
-    #     new_locs[0] = torch.round(new_locs[0])
-
-    #     sizes = torch.tensor(
-    #         shape, dtype=displacement.dtype, device=displacement.device
-    #     )
-
-    #     scales = 2.0 / (sizes - 1).clamp(min=1)
-    #     broadcast_shape = (ndim,) + (1,) * len(shape)
-    #     scales = scales.view(broadcast_shape)
-
-    #     grid = new_locs * scales - 1.0
-
-    #     grid = grid.flip(
-    #         dims=(1,)
-    #     )  # Convert from ij (z,y,x) to (x,y,z) convention for grid_sample
-    #     grid = grid.permute(0, 2, 3, 4, 1)  # To have a (N, D, H, W, C) shape
-
-    #     return F.grid_sample(
-    #         moving, grid, mode=self.mode, padding_mode="reflection", align_corners=True
-    #     )
-
     def forward(
         self,
         moving: torch.Tensor,
         displacement: torch.Tensor,
     ) -> torch.Tensor:
-        # moving: (N, C, D, H, W)
-        # displacement: (N, 3, D, H, W)
+        shape = moving.shape[2:]
+        ndim = len(shape)
 
-        N, C, D, H, W = moving.shape
-        device = displacement.device
-        dtype = displacement.dtype
+        axes = [
+            torch.arange(0, s, dtype=displacement.dtype, device=displacement.device)
+            for s in shape
+        ]
 
-        # 1. Grille 2D de base pour les axes Y et X
-        grid_y, grid_x = torch.meshgrid(
-            torch.arange(0, H, dtype=dtype, device=device),
-            torch.arange(0, W, dtype=dtype, device=device),
-            indexing="ij",
+        meshgrid = torch.stack(torch.meshgrid(*axes, indexing="ij"), dim=0).contiguous()
+
+        new_locs = meshgrid + displacement
+
+        new_locs = torch.cat([torch.round(new_locs[:, :1]), new_locs[:, 1:]], dim=1)
+
+        sizes = torch.tensor(
+            shape, dtype=displacement.dtype, device=displacement.device
         )
 
-        # Facteurs de normalisation [-1, 1] pour F.grid_sample 2D
-        scale_y = 2.0 / max(H - 1, 1)
-        scale_x = 2.0 / max(W - 1, 1)
+        scales = 2.0 / (sizes - 1).clamp(min=1)
+        broadcast_shape = (ndim,) + (1,) * len(shape)
+        scales = scales.view(broadcast_shape)
 
-        output_slices = []
+        grid = new_locs * scales - 1.0
 
-        # 2. Traitement tranche par tranche (Stacks 2D)
-        for z in range(D):
-            # On extrait les déplacements pour la tranche courante `z`
-            disp_z = displacement[:, 0, z, :, :]  # (N, H, W)
-            disp_y = displacement[:, 1, z, :, :]  # (N, H, W)
-            disp_x = displacement[:, 2, z, :, :]  # (N, H, W)
+        grid = grid.flip(
+            dims=(1,)
+        )  # Convert from ij (z,y,x) to (x,y,z) convention for grid_sample
+        grid = grid.permute(0, 2, 3, 4, 1)  # To have a (N, D, H, W, C) shape
 
-            # A. Arrondi de Z à l'entier le plus proche (Nearest Z)
-            z_target = torch.round(z + disp_z).long().clamp(0, D - 1)
-
-            # B. Calcul des nouvelles coordonnées 2D (Y, X)
-            new_y = grid_y + disp_y
-            new_x = grid_x + disp_x
-
-            # Normalisation dans [-1, 1]
-            grid_y_norm = new_y * scale_y - 1.0
-            grid_x_norm = new_x * scale_x - 1.0
-
-            # grid_sample 2D attend la forme (N, H, W, 2) avec l'ordre (X, Y)
-            grid_2d = torch.stack([grid_x_norm, grid_y_norm], dim=-1)
-
-            # C. Extraction de la slice 2D exacte pour chaque élément du batch
-            # z_target peut varier par pixel, on prend la tranche majoritaire ou l'indexation directe
-            # Si z_target dépend du pixel (N, H, W) :
-            n_idx = torch.arange(N, device=device).view(N, 1, 1)
-            moving_slice_2d = moving[
-                n_idx, :, z_target
-            ]  # Shape: (N, H, W, C) -> Permute pour (N, C, H, W)
-            moving_slice_2d = moving_slice_2d.permute(0, 3, 1, 2)
-
-            # D. Grid Sample 2D STRICT (uniquement 4 points interpolés en X et Y)
-            warped_slice = F.grid_sample(
-                moving_slice_2d,
-                grid_2d,
-                mode="bilinear",  # Bilinéaire 2D sur 4 points
-                padding_mode="reflection",
-                align_corners=True,
-            )
-
-            output_slices.append(warped_slice)
-
-        # 3. Empilement des tranches 2D pour reformer le volume 3D (N, C, D, H, W)
-        return torch.stack(output_slices, dim=2)
+        return F.grid_sample(
+            moving, grid, mode=self.mode, padding_mode="reflection", align_corners=True
+        )
 
 
 class ConvBlock(nn.Module):
