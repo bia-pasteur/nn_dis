@@ -8,7 +8,7 @@ from torch import nn
 
 
 class SpatialTransformer(nn.Module):
-    def __init__(self, mode: str = "nearest"):  # str = "bilinear"):
+    def __init__(self, mode: str = "bilinear"):
         super().__init__()
         self.mode = mode
 
