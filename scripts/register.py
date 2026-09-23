@@ -254,16 +254,6 @@ def register(
 
     warped_moving = moving
     total_displacement = None
-    with torch.no_grad():
-        for _ in range(nb_warps):
-            displacement, warped_moving = model(
-                ref, warped_moving, return_warped_moving=True
-            )
-            if total_displacement is None:
-                total_displacement = displacement
-            else:
-                total_displacement += displacement
-
     # with torch.no_grad():
     #     for _ in range(nb_warps):
     #         displacement, warped_moving = model(
@@ -272,9 +262,19 @@ def register(
     #         if total_displacement is None:
     #             total_displacement = displacement
     #         else:
-    #             total_displacement = compose_flows(
-    #                 model.transformer, total_displacement, displacement
-    #             )
+    #             total_displacement += displacement
+
+    with torch.no_grad():
+        for _ in range(nb_warps):
+            displacement, warped_moving = model(
+                ref, warped_moving, return_warped_moving=True
+            )
+            if total_displacement is None:
+                total_displacement = displacement
+            else:
+                total_displacement = compose_flows(
+                    model.transformer, total_displacement, displacement
+                )
 
     return (
         img,
