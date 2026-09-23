@@ -118,10 +118,6 @@ def get_img_spacing(
     original_shape = img.shape  # (T, D, H, W)
     _, orig_h, orig_w = original_shape[1:]
 
-    # Quantile normalization
-    # q1, q99 = np.quantile(img, [0.01, 0.99])
-    # img = np.clip((img - q1) / (q99 - q1), 0, 1)
-
     img = np.clip(img / img.max(), 0, 1)
 
     # Reshape frames
@@ -258,16 +254,6 @@ def register(
 
     warped_moving = moving
     total_displacement = None
-    # with torch.no_grad():
-    #     for _ in range(nb_warps):
-    #         displacement, warped_moving = model(
-    #             ref, warped_moving, return_warped_moving=True
-    #         )
-    #         if total_displacement is None:
-    #             total_displacement = displacement
-    #         else:
-    #             total_displacement += displacement
-
     with torch.no_grad():
         for _ in range(nb_warps):
             displacement, warped_moving = model(
@@ -276,9 +262,19 @@ def register(
             if total_displacement is None:
                 total_displacement = displacement
             else:
-                total_displacement = compose_flows(
-                    model.transformer, total_displacement, displacement
-                )
+                total_displacement += displacement
+
+    # with torch.no_grad():
+    #     for _ in range(nb_warps):
+    #         displacement, warped_moving = model(
+    #             ref, warped_moving, return_warped_moving=True
+    #         )
+    #         if total_displacement is None:
+    #             total_displacement = displacement
+    #         else:
+    #             total_displacement = compose_flows(
+    #                 model.transformer, total_displacement, displacement
+    #             )
 
     return (
         img,

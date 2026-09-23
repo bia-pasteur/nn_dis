@@ -8,7 +8,7 @@ from torch import nn
 
 
 class SpatialTransformer(nn.Module):
-    def __init__(self, mode: str = "bilinear"):  # mode = "bilinear" d'habitude
+    def __init__(self, mode: str = "bilinear"):
         super().__init__()
         self.mode = mode
 
@@ -29,7 +29,7 @@ class SpatialTransformer(nn.Module):
 
         new_locs = meshgrid + displacement
 
-        new_locs = torch.cat([torch.round(new_locs[:, :1]), new_locs[:, 1:]], dim=1)
+        # new_locs = torch.cat([torch.round(new_locs[:, :1]), new_locs[:, 1:]], dim=1)
 
         sizes = torch.tensor(
             shape, dtype=displacement.dtype, device=displacement.device
@@ -207,98 +207,6 @@ class NetworkPairwise(nn.Module):
             self.decoder.append(
                 UpsampleConv(
                     in_channels=in_ch, skip_channels=skip_ch, out_channels=out_ch
-                )
-            )
-            in_ch = out_ch
-
-        self.flow_head = nn.Conv3d(in_ch, ndim, kernel_size=1, padding_mode="reflect")
-
-        nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-3)
-        nn.init.zeros_(self.flow_head.bias)
-
-        self.transformer = SpatialTransformer()
-
-    def forward(
-        self,
-        ref: torch.Tensor,
-        moving: torch.Tensor,
-        return_warped_moving: bool = False,
-    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
-
-        x = torch.cat([ref, moving], dim=1)
-
-        skips = []
-        for enc_block in self.encoder:
-            skips.append(x)
-            x = enc_block(x)
-
-        x = self.bottleneck(x)
-
-        skips = list(reversed(skips))
-        for i, dec_block in enumerate(self.decoder):
-            x = dec_block(x, skips[i])
-
-        field = self.flow_head(x) * self.flow_multiplier
-
-        if return_warped_moving:
-            return field, self.transformer(moving, field)
-
-        return field
-
-
-class NetworkPairwiseAnisotropic(nn.Module):
-    """
-    Same as NetworkPairwise but for anisotropic volumes.
-    The first n_2d_levels encoder/decoder levels only operate in the (H, W) plane.
-    """
-
-    def __init__(
-        self,
-        ndim: int = 3,
-        ref_channels: int = 1,
-        moving_channels: int = 1,
-        features: list[int] = [16, 32, 32, 64, 64],
-        n_2d_levels: int = 2,
-        flow_multiplier: float = 10,
-        device: str = "cpu",
-    ):
-        super().__init__()
-
-        self.ndim = ndim
-        self.device = device
-        self.flow_multiplier = flow_multiplier
-
-        in_channels = ref_channels + moving_channels
-
-        self.encoder = nn.ModuleList()
-        self.skip_channels = []
-        in_ch = in_channels
-        for i, feature in enumerate(features):
-            self.skip_channels.append(in_ch)
-            self.encoder.append(
-                DownsampleConvAnisotropic(in_ch, feature, is_2d=(i < n_2d_levels))
-            )
-            in_ch = feature
-
-        self.bottleneck = ConvBlockAnisotropic(features[-1], features[-1])
-
-        self.decoder = nn.ModuleList()
-
-        reversed_features = list(reversed(features))
-        reversed_skips = list(reversed(self.skip_channels))
-
-        in_ch = features[-1]
-
-        for i in range(len(reversed_features)):
-            encoder_level = len(features) - 1 - i
-            out_ch = reversed_features[i]
-            skip_ch = reversed_skips[i]
-            self.decoder.append(
-                UpsampleConvAnisotropic(
-                    in_channels=in_ch,
-                    skip_channels=skip_ch,
-                    out_channels=out_ch,
-                    is_2d=(encoder_level < n_2d_levels),
                 )
             )
             in_ch = out_ch
