@@ -9,7 +9,7 @@ train_config:
     gpu: 0
     save_every: 100
     features: [16, 32, 32, 64, 64]
-    flow_multiplier: 1
+    flow_multiplier: 10
     model_type: 'aniso'
     train_data: '/pasteur/helix/projects/bia/jlahmani/data/fractals/train' 
     val_data: '/pasteur/helix/projects/bia/jlahmani/data/fractals/val'
