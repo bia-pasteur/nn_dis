@@ -7,7 +7,7 @@ train_config:
     lr: 1e-3
     alpha_param: 0.1
     beta_param: 0
-    gpu: 0
+    gpu: 0.1
     save_every: 100
     features: [16, 32, 32, 64, 64]
     flow_multiplier: 10

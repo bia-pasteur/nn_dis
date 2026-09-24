@@ -188,7 +188,12 @@ def main(train_config: TrainConfig):
     hessian_loss_fn = network.losses.SpatialHessian("l2")
     gt_loss_fn = network.losses.GT_comp()
 
-    loss_weights = [1.0, train_config.alpha_param, train_config.beta_param, 1.0]
+    loss_weights = [
+        1.0,
+        train_config.alpha_param,
+        train_config.beta_param,
+        train_config.gt_param,
+    ]
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
 
     # Create dataloader
@@ -311,9 +316,6 @@ def main(train_config: TrainConfig):
         )
 
         avg_loss = epoch_log_validation["loss"]
-        # Print progress
-        # if (epoch + 1) % 10 == 0:
-        #     print(f"Epoch {epoch + 1}/{train_config.epochs}, Loss: {avg_loss:.6f}")
 
         # Save periodic checkpoints
         if (epoch + 1) % train_config.save_every == 0:

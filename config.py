@@ -49,6 +49,7 @@ class TrainConfig:
     lr: float
     alpha_param: float
     beta_param: float
+    gt_param: float
     gpu: int
     features: List[int]
     model_type: str
