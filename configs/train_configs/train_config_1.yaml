@@ -3,7 +3,7 @@ train_config:
     epochs: 500
     workers: 4
     batch_size: 10
-    lr: 1e-4
+    lr: 1e-3
     alpha_param: 0.1
     beta_param: 0
     gpu: 0

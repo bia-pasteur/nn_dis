@@ -67,7 +67,16 @@ class GT_comp(nn.Module):
         gt_dis: torch.Tensor,
         mask: torch.Tensor,
     ) -> torch.Tensor:
-        return nf.mse(prediction=computed_dis * (gt_dis != 0), target=gt_dis, mask=mask)
+
+        assert computed_dis.ndim == 5, (
+            f"computed_dis must be of shape (B, 3, Z, H, W). Got {computed_dis.shape}."
+        )
+
+        assert mask.ndim == 4, f"mask must be of shape (B, Z, H, W). Got {mask.shape}."
+        nb_mask = torch.sum(mask)
+        assert nb_mask != 0, "Got an all zero mask"
+
+        return torch.sum(((computed_dis - gt_dis) ** 2) * mask[:, None]) / nb_mask
 
 
 class SpatialGradient(_SpatialPenaltyBase):

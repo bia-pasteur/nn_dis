@@ -92,10 +92,10 @@ def mse(
     prediction: torch.Tensor,
     target: torch.Tensor,
     mask: torch.Tensor,
-    reduction: Union[str, None] = "weighted_mean",
-    reduction_dim: Union[int, Tuple[int, ...], None] = None,
+    reduction: str | None = "weighted_mean",
+    reduction_dim: int | tuple[int] | None = None,
     keepdims: bool = False,
-    weight_mask: Union[float, None] = 0.5,
+    weight_mask: float | None = 0.5,
 ) -> torch.Tensor:
     """
     Compute mean squared error

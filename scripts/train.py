@@ -82,6 +82,7 @@ def epoch_(
         "loss_mse": [],
         "loss_grad": [],
         "loss_hess": [],
+        "loss_gt": [],
         "max_dis": [],
         "avg_dis": [],
     }
@@ -101,6 +102,7 @@ def epoch_(
         moving = batch["moving"].to(device)
         mask = batch["mask"].to(device)
         u_gt = batch["u_gt"].to(device)
+        mask_gt = batch["mask_gt"].to(device)
 
         # Get the displacement and the warped ref image from the model
         displacement, warped_moving = model(ref, moving, return_warped_moving=True)
@@ -112,12 +114,10 @@ def epoch_(
             reduction=reduction,
             weight_mask=weight_mask,
         )
-        print("shape dis", displacement.shape)
-        print("shape ugt", u_gt.shape)
 
         grad_loss = grad_loss_fn(displacement)
         hessian_loss = hessian_loss_fn(displacement)
-        gt_loss = gt_loss_fn(displacement, u_gt, mask)
+        gt_loss = gt_loss_fn(displacement, u_gt, mask_gt)
 
         loss = (
             loss_weights[0] * img_loss
@@ -135,6 +135,7 @@ def epoch_(
         log["loss_mse"].append(img_loss.item())
         log["loss_grad"].append(grad_loss.item())
         log["loss_hess"].append(hessian_loss.item())
+        log["loss_gt"].append(gt_loss.item())
         log["max_dis"].append(np.max(np.abs(displacement.detach().cpu().numpy())))
         log["avg_dis"].append(np.mean(displacement.detach().cpu().numpy()))
 
@@ -237,7 +238,7 @@ def main(train_config: TrainConfig):
     else:
         train_dataset = TractionDataset(
             Path(train_config.train_data),
-            transform=get_transforms(),
+            transform=None,  # get_transforms(),
             channel=train_config.channel,
             mask=train_config.mask,
             path_gt=Path(train_config.path_gt),

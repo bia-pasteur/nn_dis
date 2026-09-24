@@ -12,6 +12,7 @@ from scipy.ndimage import binary_dilation, binary_fill_holes
 from skimage.filters import threshold_otsu
 from skimage.morphology import disk, remove_small_objects
 from torch.utils.data import Dataset
+import napari
 
 from scripts.utils import reshape_img
 
@@ -33,7 +34,6 @@ def get_transforms():
                 p=0.5,
             ),
             tio.RandomNoise(std=(0, 0.08), p=0.3),
-            # tio.RandomGamma(log_gamma=(-0.7, 0.7), p=0.3),
             tio.RandomBlur(std=(0, 1), p=0.2),
         ],
     )
@@ -125,6 +125,7 @@ class TractionDataset(Dataset):
 
         if ext == ".npy":
             img_raw = np.load(img_path)
+            mask_gt = img_raw[0] > 0.05
             self.channel = None
 
             if self.path_gt:
@@ -136,9 +137,9 @@ class TractionDataset(Dataset):
 
                 u_gt = np.stack(
                     [
-                        reshape_img(ugt_raw[0]),
-                        reshape_img(ugt_raw[1]),
-                        reshape_img(ugt_raw[2]),
+                        reshape_img(ugt_raw[0], self.max_depth),
+                        reshape_img(ugt_raw[1], self.max_depth),
+                        reshape_img(ugt_raw[2], self.max_depth),
                     ]
                 )
 
@@ -184,4 +185,5 @@ class TractionDataset(Dataset):
             "moving": subject.stack.data[1:2],  # I2
             "mask": mask_2d,
             "u_gt": u_gt,
+            "mask_gt": mask_gt,
         }
