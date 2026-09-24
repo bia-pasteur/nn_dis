@@ -60,6 +60,7 @@ class TrainConfig:
     channel: int | None = None
     mask: bool = False
     combine: bool = False
+    path_gt: str | None = None
 
 
 @dataclass

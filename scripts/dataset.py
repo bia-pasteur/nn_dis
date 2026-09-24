@@ -77,6 +77,7 @@ class TractionDataset(Dataset):
         transform: Optional[Callable] = None,
         channel: Optional[str] = None,
         mask: Optional[bool] = False,
+        path_gt: Optional[str] = None,
     ):
         self.files = sorted(
             [
@@ -89,6 +90,7 @@ class TractionDataset(Dataset):
         self.channel = channel
         self.mask = mask
         self.transform = transform
+        self.path_gt = path_gt
 
         depths = []
         for f in self.files:
@@ -119,9 +121,27 @@ class TractionDataset(Dataset):
 
         ext = os.path.splitext(img_path)[1].lower()
 
+        u_gt = None
+
         if ext == ".npy":
             img_raw = np.load(img_path)
             self.channel = None
+
+            if self.path_gt:
+                name_img = img_path.name
+                ugt_name = name_img.replace("_img.npy", "_ugt.npy")
+                path_ugt_file = self.path_gt / ugt_name
+
+                ugt_raw = np.load(path_ugt_file)
+
+                u_gt = np.stack(
+                    [
+                        reshape_img(ugt_raw[0]),
+                        reshape_img(ugt_raw[1]),
+                        reshape_img(ugt_raw[2]),
+                    ]
+                )
+
         elif ext in [".tiff", ".tif"]:
             img_raw = tifffile.imread(img_path)
         else:
@@ -148,8 +168,8 @@ class TractionDataset(Dataset):
         )
         mask_2d = torch.from_numpy(mask).unsqueeze(0).unsqueeze(0)  # (1, 1, H, W)
 
-        ref = torch.from_numpy(ref)  # (Z, H, W) -> (Z, H, W)
-        moving = torch.from_numpy(moving)  # (Z, H, W) -> (Z, H, W)
+        ref = torch.from_numpy(ref)  # (Z, H, W) numpy -> (Z, H, W) torch
+        moving = torch.from_numpy(moving)  # (Z, H, W) numpy -> (Z, H, W) torch
 
         # Stack to create a scalar image where each temporal frame becomes a channel.
         # This is necessary for augmentations to apply correctly on the two images.
@@ -160,7 +180,8 @@ class TractionDataset(Dataset):
             subject = self.transform(subject)
 
         return {
-            "ref": subject.stack.data[0:1],  # I2
-            "moving": subject.stack.data[1:2],  # I1
+            "ref": subject.stack.data[0:1],  # I1
+            "moving": subject.stack.data[1:2],  # I2
             "mask": mask_2d,
+            "u_gt": u_gt,
         }

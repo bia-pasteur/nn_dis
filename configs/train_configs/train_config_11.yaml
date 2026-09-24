@@ -1,19 +1,20 @@
 train_config: 
-    output_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/results/train_11'
+    output_dir: '/Users/josephinelahmani/Desktop/nn_dis/results/test_train_11'
     epochs: 500
     workers: 4
     batch_size: 10
-    lr: 5e-4
+    lr: 1e-4
     alpha_param: 0.1
-    beta_param: 0.01
+    beta_param: 0
     gpu: 0
     save_every: 100
     features: [16, 32, 32, 64, 64]
     flow_multiplier: 10
     model_type: 'aniso'
-    train_data: '/pasteur/helix/projects/bia/jlahmani/data/micro/train' 
-    val_data: '/pasteur/helix/projects/bia/jlahmani/data/micro/val'
+    train_data: '/Users/josephinelahmani/Desktop/nn_dis/data/fractals/train' 
+    val_data: '/Users/josephinelahmani/Desktop/nn_dis/data/fractals/val'
     reduction: "mean"
-    channel: 0
+    channel: null
     mask: False
-    combine: True
+    combine: False
+    path_gt: '/Users/josephinelahmani/Desktop/nn_dis/data/fractals/perlin' 

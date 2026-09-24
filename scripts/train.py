@@ -46,6 +46,7 @@ def epoch_(
     image_loss_fn: nn.Module,
     grad_loss_fn: nn.Module,
     hessian_loss_fn: nn.Module,
+    gt_loss_fn: nn.Module,
     loss_weights: Sequence[float],
     device: str = "cuda",
     training: bool = True,
@@ -99,6 +100,7 @@ def epoch_(
         ref = batch["ref"].to(device)
         moving = batch["moving"].to(device)
         mask = batch["mask"].to(device)
+        u_gt = batch["u_gt"].to(device)
 
         # Get the displacement and the warped ref image from the model
         displacement, warped_moving = model(ref, moving, return_warped_moving=True)
@@ -110,13 +112,18 @@ def epoch_(
             reduction=reduction,
             weight_mask=weight_mask,
         )
+        print("shape dis", displacement.shape)
+        print("shape ugt", u_gt.shape)
+
         grad_loss = grad_loss_fn(displacement)
         hessian_loss = hessian_loss_fn(displacement)
+        gt_loss = gt_loss_fn(displacement, u_gt, mask)
 
         loss = (
             loss_weights[0] * img_loss
             + loss_weights[1] * grad_loss
             + loss_weights[2] * hessian_loss
+            + loss_weights[3] * gt_loss
         )
 
         if training:
@@ -178,8 +185,9 @@ def main(train_config: TrainConfig):
     image_loss_fn = network.losses.MSE()
     grad_loss_fn = network.losses.SpatialGradient("l2")
     hessian_loss_fn = network.losses.SpatialHessian("l2")
+    gt_loss_fn = network.losses.GT_comp()
 
-    loss_weights = [1.0, train_config.alpha_param, train_config.beta_param]
+    loss_weights = [1.0, train_config.alpha_param, train_config.beta_param, 1.0]
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
 
     # Create dataloader
@@ -232,6 +240,7 @@ def main(train_config: TrainConfig):
             transform=get_transforms(),
             channel=train_config.channel,
             mask=train_config.mask,
+            path_gt=Path(train_config.path_gt),
         )
         train_loader = DataLoader(
             train_dataset,
@@ -244,6 +253,7 @@ def main(train_config: TrainConfig):
             Path(train_config.val_data),
             channel=train_config.channel,
             mask=train_config.mask,
+            path_gt=Path(train_config.path_gt),
         )
         validation_loader = DataLoader(
             validation_dataset,
@@ -269,6 +279,7 @@ def main(train_config: TrainConfig):
             image_loss_fn=image_loss_fn,
             grad_loss_fn=grad_loss_fn,
             hessian_loss_fn=hessian_loss_fn,
+            gt_loss_fn=gt_loss_fn,
             loss_weights=loss_weights,
             device=device,
             training=True,
@@ -283,6 +294,7 @@ def main(train_config: TrainConfig):
                 image_loss_fn=image_loss_fn,
                 grad_loss_fn=grad_loss_fn,
                 hessian_loss_fn=hessian_loss_fn,
+                gt_loss_fn=gt_loss_fn,
                 loss_weights=loss_weights,
                 device=device,
                 training=False,

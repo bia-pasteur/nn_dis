@@ -58,6 +58,18 @@ class MSE(nn.Module):
         )
 
 
+class GT_comp(nn.Module):
+    """Distance to ground truth value"""
+
+    def forward(
+        self,
+        computed_dis: torch.Tensor,
+        gt_dis: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
+        return nf.mse(prediction=computed_dis * (gt_dis != 0), target=gt_dis, mask=mask)
+
+
 class SpatialGradient(_SpatialPenaltyBase):
     """Spatial gradient penalty, inspired from neurite.modules"""
 
