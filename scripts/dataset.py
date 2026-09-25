@@ -12,7 +12,6 @@ from scipy.ndimage import binary_dilation, binary_fill_holes
 from skimage.filters import threshold_otsu
 from skimage.morphology import disk, remove_small_objects
 from torch.utils.data import Dataset
-import napari
 
 from scripts.utils import reshape_img
 
