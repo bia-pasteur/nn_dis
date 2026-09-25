@@ -20,13 +20,6 @@ def random_affine_matrix(
     min_singular_value: float,
     max_singular_value: float,
 ):
-    """
-    Generate a random 3D linear transform A with controlled singular values.
-
-    A = U S V^T
-
-    The singular values of A are exactly the diagonal values of S.
-    """
 
     U = random_orthogonal_matrix(rng)
     V = random_orthogonal_matrix(rng)
@@ -121,6 +114,36 @@ def generate_fractal_image(
     return image
 
 
+def rotation_matrix(alpha: float, beta: float, gamma: float) -> np.ndarray:
+    """
+    R = Rz(alpha) @ Ry(beta) @ Rx(gamma)
+    """
+    return np.array(
+        [
+            [
+                np.cos(alpha) * np.cos(beta),
+                np.cos(alpha) * np.sin(beta) * np.sin(gamma)
+                - np.sin(alpha) * np.cos(gamma),
+                np.cos(alpha) * np.sin(beta) * np.cos(gamma)
+                + np.sin(alpha) * np.sin(gamma),
+            ],
+            [
+                np.sin(alpha) * np.cos(beta),
+                np.sin(alpha) * np.sin(beta) * np.sin(gamma)
+                + np.cos(alpha) * np.cos(gamma),
+                np.sin(alpha) * np.sin(beta) * np.cos(gamma)
+                - np.cos(alpha) * np.sin(gamma),
+            ],
+            [
+                -np.sin(beta),
+                np.cos(beta) * np.sin(gamma),
+                np.cos(beta) * np.cos(gamma),
+            ],
+        ],
+        dtype=float,
+    )
+
+
 def generate_pyvista_perlin_displacement(
     shape: list[int],
     amplitude_min: float,
@@ -142,7 +165,7 @@ def generate_pyvista_perlin_displacement(
     u_comps = []
 
     for _ in range(3):
-        phase = tuple(np.random.uniform(0, 1000, size=3))
+        phase = tuple(rng.uniform(0, 1000, size=3))
 
         amplitude = rng.uniform(amplitude_min, amplitude_max)
 

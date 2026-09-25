@@ -2,7 +2,6 @@
 
 import os
 from pathlib import Path
-from typing import Callable, Optional
 
 import numpy as np
 import tifffile
@@ -73,10 +72,10 @@ class TractionDataset(Dataset):
     def __init__(
         self,
         folder: Path,
-        transform: Optional[Callable] = None,
-        channel: Optional[str] = None,
-        mask: Optional[bool] = False,
-        path_gt: Optional[str] = None,
+        transform: callable = None,
+        channel: str | None = None,
+        mask: bool | None = False,
+        path_gt: str | None = None,
     ):
         self.files = sorted(
             [

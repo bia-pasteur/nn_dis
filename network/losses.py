@@ -2,8 +2,6 @@
 Loss functions for image registration.
 """
 
-from typing import Literal, Tuple, Union
-
 import torch
 from torch import nn
 
@@ -13,9 +11,9 @@ import network.functional as nf
 class _SpatialPenaltyBase(nn.Module):
     def __init__(
         self,
-        penalty: Literal["l1", "l2"] = "l2",
-        reduction: Union[str, None] = "mean",
-        reduction_dim: Union[int, Tuple[int, ...], None] = None,
+        penalty: str = "l2",
+        reduction: str | None = "mean",
+        reduction_dim: int | tuple[int] | None = None,
         keepdims: bool = False,
     ):
         super().__init__()
@@ -42,9 +40,9 @@ class MSE(nn.Module):
         prediction: torch.Tensor,
         target: torch.Tensor,
         mask: torch.Tensor,
-        reduction: Union[str, None] = "weighted_mean",
-        weight_mask: Union[float, None] = 0.5,
-        reduction_dim: Union[int, Tuple[int, ...], None] = None,
+        reduction: str | None = "weighted_mean",
+        weight_mask: float | None = 0.5,
+        reduction_dim: int | tuple[int] | None = None,
         keepdims: bool = False,
     ) -> torch.Tensor:
         return nf.mse(
@@ -76,7 +74,9 @@ class GT_comp(nn.Module):
         nb_mask = torch.sum(mask)
         assert nb_mask != 0, "Got an all zero mask"
 
-        return torch.sum(((computed_dis - gt_dis) ** 2) * mask[:, None]) / nb_mask
+        return torch.sum(((computed_dis - gt_dis) ** 2) * mask[:, None]) / (
+            torch.sum(((gt_dis) ** 2) * mask[:, None])  # * nb_mask
+        )
 
 
 class SpatialGradient(_SpatialPenaltyBase):

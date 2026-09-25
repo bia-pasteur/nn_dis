@@ -9,7 +9,6 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from pathlib import Path
-from typing import Sequence, Union
 
 import jsonargparse
 import numpy as np
@@ -47,10 +46,10 @@ def epoch_(
     grad_loss_fn: nn.Module,
     hessian_loss_fn: nn.Module,
     gt_loss_fn: nn.Module,
-    loss_weights: Sequence[float],
+    loss_weights: list[float],
     device: str = "cuda",
     training: bool = True,
-    weight_mask: Union[float, None] = 0.5,
+    weight_mask: float | None = 0.5,
     reduce_log: bool = False,
     reduction: str = "mean",
 ) -> float:

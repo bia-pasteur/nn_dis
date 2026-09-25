@@ -29,8 +29,6 @@ class SpatialTransformer(nn.Module):
 
         new_locs = meshgrid + displacement
 
-        # new_locs = torch.cat([torch.round(new_locs[:, :1]), new_locs[:, 1:]], dim=1)
-
         sizes = torch.tensor(
             shape, dtype=displacement.dtype, device=displacement.device
         )

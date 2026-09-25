@@ -2,8 +2,6 @@
 Tensor operations and functions
 """
 
-from typing import List, Literal, Tuple, Union
-
 import torch
 
 _MULTIDIM_REDUCTIONS = frozenset(
@@ -16,10 +14,10 @@ _ALL_REDUCTIONS = _MULTIDIM_REDUCTIONS | _SINGLEDIM_REDUCTIONS
 def reduce(
     tensor: torch.Tensor,
     reduction: str = "mean",
-    dim: Union[int, Tuple[int, ...], None] = None,
+    dim: int | tuple[int] | None = None,
     keepdims: bool = False,
     mask: torch.Tensor = None,
-    weight_mask: Union[float, None] = 0.5,
+    weight_mask: float | None = 0.5,
 ) -> torch.Tensor:
     """
     Apply any torch reduction on a tensor,
@@ -112,8 +110,8 @@ def mse(
 
 def spatial_gradient(
     input_tensor: torch.Tensor,
-    non_spatial_dims: Union[Tuple[int, ...], None] = None,
-) -> List[torch.Tensor]:
+    non_spatial_dims: tuple[int] | None = None,
+) -> list[torch.Tensor]:
     """
     Compute first-order spatial derivatives,
     inspired by neurite.functional
@@ -132,10 +130,10 @@ def spatial_gradient(
 
 def spatial_gradient_penalty(
     input_tensor: torch.Tensor,
-    penalty: Literal["l1", "l2"] = "l2",
-    reduction: Union[str, None] = "mean",
-    non_spatial_dims: Union[Tuple[int, ...], None] = (0, 1),
-    reduction_dim: Union[int, Tuple[int, ...], None] = None,
+    penalty: str = "l2",
+    reduction: str | None = "mean",
+    non_spatial_dims: tuple[int] | None = (0, 1),
+    reduction_dim: int | tuple[int] | None = None,
     keepdims: bool = False,
 ) -> torch.Tensor:
     """
@@ -169,8 +167,8 @@ def spatial_gradient_penalty(
 
 def spatial_hessian(
     input_tensor: torch.Tensor,
-    non_spatial_dims: Union[Tuple[int, ...], None] = None,
-) -> List[List[torch.Tensor]]:
+    non_spatial_dims: tuple[int] | None = None,
+) -> list[list[torch.Tensor]]:
     """
     Compute second‑order spatial derivatives (Hessian matrix entries) using finite
     differences along each spatial dimension
@@ -197,10 +195,10 @@ def spatial_hessian(
 
 def spatial_hessian_penalty(
     input_tensor: torch.Tensor,
-    penalty: Literal["l1", "l2"] = "l2",
-    reduction: Union[str, None] = "mean",
-    non_spatial_dims: Union[Tuple[int, ...], None] = (0, 1),
-    reduction_dim: Union[int, Tuple[int, ...], None] = None,
+    penalty: str = "l2",
+    reduction: str | None = "mean",
+    non_spatial_dims: tuple[int] | None = (0, 1),
+    reduction_dim: int | tuple[int] | None = None,
     keepdims: bool = False,
 ) -> torch.Tensor:
     """

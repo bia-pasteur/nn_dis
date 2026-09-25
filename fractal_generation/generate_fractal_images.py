@@ -53,6 +53,7 @@ def create_full_fractal_image(
     assert has_all_gaussian == has_any_gaussian, (
         "Incomplete Gaussian parameters! You must pass both 'sigma' and 'alpha'."
     )
+
     rng = np.random.default_rng(seed)
 
     moving = generate_fractal_image(
@@ -90,8 +91,8 @@ def create_full_fractal_image(
 
     else:
         raise ValueError(
-            "You must specify EITHER all Perlin displacement parameters "
-            "OR all Gaussian parameters (sigma, alpha), but NOT both or neither."
+            "You must specify either all Perlin displacement parameters "
+            "or all Gaussian parameters (sigma, alpha), but not both or neither."
         )
 
     grid_z, grid_y, grid_x = np.meshgrid(
