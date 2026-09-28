@@ -4,8 +4,9 @@ train_config:
     workers: 4
     batch_size: 10
     lr: 1e-4
-    alpha_param: 0.3
+    alpha_param: 0.1
     beta_param: 0
+    gt_param: 0.01
     gpu: 0
     save_every: 100
     features: [16, 32, 32, 64, 64]
@@ -17,3 +18,4 @@ train_config:
     channel: null
     mask: False
     combine: False
+    path_gt: '/pasteur/helix/projects/bia/jlahmani/data/fractals/perlin' 

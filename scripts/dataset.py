@@ -24,13 +24,13 @@ def get_transforms():
 
     training_transform = tio.Compose(
         [
-            tio.RandomFlip(axes=("LR",), flip_probability=0.5),
-            tio.RandomAffine(
-                scales=(0.9, 1.1),
-                degrees=(-180, 180, 0, 0, 0, 0),
-                translation=7,
-                p=0.5,
-            ),
+            # tio.RandomFlip(axes=("LR",), flip_probability=0.5),
+            # tio.RandomAffine(
+            #     scales=(0.9, 1.1),
+            #     degrees=(-180, 180, 0, 0, 0, 0),
+            #     translation=7,
+            #     p=0.5,
+            # ),
             tio.RandomNoise(std=(0, 0.08), p=0.3),
             tio.RandomBlur(std=(0, 1), p=0.2),
         ],
@@ -159,6 +159,8 @@ class TractionDataset(Dataset):
 
         ref = reshape_img(ref_numpy, self.max_depth)  # (Z, H, W)
         moving = reshape_img(moving_numpy, self.max_depth)  # (Z, H, W)
+
+        mask_gt = ref > 0.05
 
         mask = (
             compute_mask(np.stack([ref, moving], axis=0))
