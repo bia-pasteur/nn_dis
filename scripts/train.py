@@ -242,7 +242,7 @@ def main(train_config: TrainConfig):
     else:
         train_dataset = TractionDataset(
             Path(train_config.train_data),
-            transform=None,  # get_transforms(),
+            transform=get_transforms(),
             channel=train_config.channel,
             mask=train_config.mask,
             path_gt=Path(train_config.path_gt),
