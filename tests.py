@@ -9,9 +9,9 @@ from optical_flow.algorithms import fista_of, hs_of, warp
 from scripts.register import get_img_spacing, register
 from scripts.utils import reshape_img
 
-RESULTS_FOLDER = "/Users/josephinelahmani/helix_mount/nn_dis/results/train_1"
-SAVE_PATH = Path("/Users/josephinelahmani/Desktop/nn_dis")
-BASE_FOLDER = Path("/Users/josephinelahmani/Desktop/nn_dis/tests")
+RESULTS_FOLDER = "/Users/josephinelahmani/helix_mount/nn_dis/results/train_2"
+SAVE_PATH = Path("/Users/josephinelahmani/Desktop/nn_dis/data")
+BASE_FOLDER = Path("/Users/josephinelahmani/Desktop/nn_dis/data")
 NAME_IMG_Z = "E_1000_nu_0.4_nb_zones_1_test_z_img.npy"
 NAME_IMG_X = "E_1000_nu_0.4_nb_zones_1_test_x_img.npy"
 NAME_IMG_4_ZONES = "E_1000_nu_0.4_nb_zones_4_test_img.npy"
@@ -158,7 +158,7 @@ def get_img_flows(
                 img_path=base_folder / name_img,
                 folder_path=results_folder,
                 model_type="aniso",
-                nb_warps=5,
+                nb_warps=1,
                 default_spacing=[1.0, 0.13, 0.13],
             )
     else:
@@ -176,7 +176,7 @@ def get_img_flows(
                 img_path=base_folder / name_img,
                 folder_path=results_folder,
                 model_type="aniso",
-                nb_warps=5,
+                nb_warps=1,
                 default_spacing=[1.0, 0.13, 0.13],
             )
             h_vxm = np.transpose(h_vxm_raw, (1, 0, 2, 3, 4))
@@ -207,8 +207,8 @@ def add_flows_viewer(
     ax: int,
     viewer: napari.Viewer,
     spacing: tuple[float, float, float],
-    vmin: float,
-    vmax: float,
+    vmin: float | None = None,
+    vmax: float | None = None,
 ) -> None:
     """
     Add a flow visualization on a given ax to a napari viewer.
@@ -231,7 +231,7 @@ def add_flows_viewer(
         scale=spacing,
         colormap="cividis",
         interpolation3d="nearest",
-        contrast_limits=(vmin, vmax),
+        contrast_limits=(vmin, vmax) if vmin is not None and vmax is not None else None,
     )
     img.colorbar.visible = True
 
@@ -242,8 +242,8 @@ def get_viewer_flows(
     flows_name: list[str],
     spacing: tuple[float, float, float],
     axes: list[int],
-    vmin: float,
-    vmax: float,
+    vmin: float | None = None,
+    vmax: float | None = None,
 ):
     """
     Create a napari viewer to observe an image and the different displacement
@@ -265,10 +265,18 @@ def get_viewer_flows(
 
     for i, flow in enumerate(flows):
         for ax in axes:
-            add_flows_viewer(
-                flow, flows_name[i], ax, viewer, spacing, vmin=vmin, vmax=vmax
-            )
-
+            if vmin is not None and vmax is not None:
+                add_flows_viewer(
+                    flow, flows_name[i], ax, viewer, spacing, vmin=vmin, vmax=vmax
+                )
+            else:
+                add_flows_viewer(
+                    flow,
+                    flows_name[i],
+                    ax,
+                    viewer,
+                    spacing,
+                )
     napari.run()
 
 
@@ -375,16 +383,16 @@ def get_metrics(
     # save_path=SAVE_PATH,
 )
 
-# get_metrics(
-#     img_x,
-#     u_gt_x,
-#     h_fista_x,
-#     h_hs_x,
-#     h_vxm_x,
-#     h_fista_masked_x,
-#     h_hs_masked_x,
-#     h_vxm_masked_x,
-# )
+get_metrics(
+    img_x,
+    u_gt_x,
+    h_fista_x,
+    h_hs_x,
+    h_vxm_x,
+    h_fista_masked_x,
+    h_hs_masked_x,
+    h_vxm_masked_x,
+)
 
 (
     img_z,
@@ -461,15 +469,15 @@ flows_z = [
 
 flows_name = ["GT", "HS", "HS masked", "FISTA", "FISTA masked", "VXM", "VXM masked"]
 
-# get_viewer_flows(
-#     img_x,
-#     flows_x,
-#     flows_name,
-#     spacing_x,
-#     axes=[2],
-#     vmin=u_gt_x.min(),
-#     vmax=u_gt_x.max(),
-# )
+get_viewer_flows(
+    img_x,
+    flows_x,
+    flows_name,
+    spacing_x,
+    axes=[2],
+    # vmin=u_gt_x.min(),
+    # vmax=u_gt_x.max(),
+)
 
 get_viewer_warped_img(img_x, spacing_x, h_fista_x, h_hs_x, h_vxm_x)
 

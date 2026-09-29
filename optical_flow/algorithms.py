@@ -367,67 +367,6 @@ def get_pyramid(
     return pyramid[::-1]
 
 
-# def get_pyramid(image, spacing=None, downscale=2.0, nlevel=10, min_size=16):
-#     """
-#     Construct image pyramid.
-
-#     Args:
-#         image (np.ndarray): The image to be preprocessed (Gray scale or RGB)
-#             Shape: # A compléter
-#         spacing (tuple or list, optional): voxel size along each axis
-#         downscale (float): The pyramid downscale factor
-#             Default: 2
-#         nlevel (int): The maximum number of pyramid levels
-#             Default: 10
-#         min_size (int): The minimum size for any dimension of the pyramid levels
-#             Default: 16
-
-#     Returns :
-#         list[ndarray]: The coarse to fine images pyramid
-#     """
-
-#     d = image.ndim
-#     if spacing is None:
-#         spacing = (1.0,) * d
-
-#     current_image = image.astype(float)
-#     current_spacing = np.array(spacing, dtype=float)
-
-#     pyramid = [(current_image, tuple(current_spacing))]
-#     count = 1
-
-#     while count < nlevel:
-#         current_shape = np.array(current_image.shape, dtype=float)
-
-#         scale_factors = np.ones(d)
-#         smallest = True
-
-#         for i in range(d):
-#             if current_shape[i] / downscale >= min_size:
-#                 scale_factors[i] = 1.0 / downscale
-#                 smallest = False
-
-#         if smallest:
-#             break
-
-#         new_image = rescale(
-#             current_image,
-#             scale=scale_factors,
-#             anti_aliasing=True,
-#             preserve_range=True,
-#             channel_axis=-1 if (image.ndim > d) else None,
-#         )
-
-#         new_spacing = current_spacing / scale_factors
-
-#         pyramid.append((new_image, tuple(new_spacing)))
-#         current_image = new_image
-#         current_spacing = new_spacing
-#         count += 1
-
-#     return pyramid[::-1]
-
-
 def forward_diff(f: np.ndarray, axis: int, spacing: float = 1.0) -> np.ndarray:
     """
     Computes the forward difference of an array along a given axis.
