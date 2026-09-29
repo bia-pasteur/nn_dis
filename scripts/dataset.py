@@ -24,13 +24,13 @@ def get_transforms():
 
     training_transform = tio.Compose(
         [
-            tio.RandomFlip(axes=("LR",), flip_probability=0.5),
-            tio.RandomAffine(
-                scales=(0.9, 1.1),
-                degrees=(-180, 180, 0, 0, 0, 0),
-                translation=7,
-                p=0.5,
-            ),
+            # tio.RandomFlip(axes=("LR",), flip_probability=0.5),
+            # tio.RandomAffine(
+            #     scales=(0.9, 1.1),
+            #     degrees=(-180, 180, 0, 0, 0, 0),
+            #     translation=7,
+            #     p=0.5,
+            # ),
             tio.RandomNoise(std=(0, 0.08), p=0.3),
             tio.RandomBlur(std=(0, 1), p=0.2),
         ],
