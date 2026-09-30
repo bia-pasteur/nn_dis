@@ -3,10 +3,10 @@ train_config:
     epochs: 500
     workers: 4
     batch_size: 10
-    lr: 1e-3
-    alpha_param: 0.1
-    beta_param: 0
-    gt_param: 0.1
+    lr: 5e-4
+    alpha_param: 0
+    beta_param: 0.01
+    gt_param: 0.001
     gpu: 0
     save_every: 100
     features: [16, 32, 32, 64, 64]
