@@ -9,7 +9,7 @@ from optical_flow.algorithms import fista_of, hs_of, warp
 from scripts.register import get_img_spacing, register
 from scripts.utils import reshape_img
 
-RESULTS_FOLDER = "/Users/josephinelahmani/helix_mount/nn_dis/results/train_2"
+RESULTS_FOLDER = "/Users/josephinelahmani/helix_mount/nn_dis/results/train_3"
 SAVE_PATH = Path("/Users/josephinelahmani/Desktop/nn_dis/data")
 BASE_FOLDER = Path("/Users/josephinelahmani/Desktop/nn_dis/data")
 NAME_IMG_Z = "E_1000_nu_0.4_nb_zones_1_test_z_img.npy"
@@ -469,16 +469,7 @@ flows_z = [
 
 flows_name = ["GT", "HS", "HS masked", "FISTA", "FISTA masked", "VXM", "VXM masked"]
 
-get_viewer_flows(
-    img_x,
-    flows_x,
-    flows_name,
-    spacing_x,
-    axes=[2],
-    # vmin=u_gt_x.min(),
-    # vmax=u_gt_x.max(),
-)
-
+get_viewer_flows(img_x, flows_x, flows_name, spacing_x, axes=[2])
 get_viewer_warped_img(img_x, spacing_x, h_fista_x, h_hs_x, h_vxm_x)
 
 # get_viewer_flows(img_z, flows_z, flows_name, spacing_z, axes=[0])
