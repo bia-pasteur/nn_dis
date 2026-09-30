@@ -1,6 +1,6 @@
 import numpy as np
 import pyvista as pv
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, map_coordinates
 
 from fractal_generation.fractals_generation import IFSFunction3D
 
@@ -142,6 +142,93 @@ def rotation_matrix(alpha: float, beta: float, gamma: float) -> np.ndarray:
         ],
         dtype=float,
     )
+
+
+def rigid_displacement_and_warp(
+    image: np.ndarray,
+    alpha_min: float,
+    alpha_max: float,
+    beta_min: float,
+    beta_max: float,
+    gamma_min: float,
+    gamma_max: float,
+    translation_min: float,
+    translation_max: float,
+    rng: np.random.Generator,
+    scale_z: float = 1.0,
+    order: int = 1,
+    mode: str = "constant",
+):
+    alpha = rng.uniform(np.deg2rad(alpha_min), np.deg2rad(alpha_max))
+    beta = rng.uniform(np.deg2rad(beta_min), np.deg2rad(beta_max))
+    gamma = rng.uniform(np.deg2rad(gamma_min), np.deg2rad(gamma_max))
+
+    t = rng.uniform(translation_min, translation_max, size=3)
+
+    assert image.ndim == 3
+    nz, ny, nx = image.shape
+
+    R = rotation_matrix(alpha, beta, gamma)
+
+    zz, yy, xx = np.meshgrid(
+        np.arange(nz, dtype=float),
+        np.arange(ny, dtype=float),
+        np.arange(nx, dtype=float),
+        indexing="ij",
+    )
+
+    x = xx
+    y = yy
+    z = zz * scale_z
+
+    center = np.array(
+        [
+            (nx - 1) / 2.0,
+            (ny - 1) / 2.0,
+            (nz - 1) * scale_z / 2.0,
+        ]
+    )
+
+    coords_1 = np.stack([x, y, z], axis=0)  # (3, nz, ny, nx)
+
+    centered_1 = coords_1 - center[:, None, None, None]
+
+    coords_2 = (
+        np.einsum("ij,jzyx->izyx", R, centered_1)
+        + center[:, None, None, None]
+        + t[:, None, None, None]
+    )
+
+    displacement_physical = coords_2 - coords_1
+
+    ux = displacement_physical[0]
+    uy = displacement_physical[1]
+    uz = displacement_physical[2] / scale_z
+
+    displacement = np.stack([uz, uy, ux], axis=0)
+
+    coords_output = coords_1
+
+    centered_output = (
+        coords_output - center[:, None, None, None] - t[:, None, None, None]
+    )
+
+    coords_input = (
+        np.einsum("ji,jzyx->izyx", R, centered_output) + center[:, None, None, None]
+    )
+
+    input_z = coords_input[2] / scale_z
+    input_y = coords_input[1]
+    input_x = coords_input[0]
+
+    image_2 = map_coordinates(
+        image,
+        coordinates=[input_z, input_y, input_x],
+        order=order,
+        mode=mode,
+    )
+
+    return image_2, displacement
 
 
 def generate_pyvista_perlin_displacement(

@@ -27,6 +27,14 @@ class FractalParams:
     freq_max_dis: float | None
     alpha: float | None
     sigma: float | None
+    alpha_rigid_min: float | None
+    alpha_rigid_max: float | None
+    beta_rigid_min: float | None
+    beta_rigid_max: float | None
+    gamma_rigid_min: float | None
+    gamma_rigid_max: float | None
+    translation_min: float | None
+    translation_max: float | None
 
 
 @dataclass

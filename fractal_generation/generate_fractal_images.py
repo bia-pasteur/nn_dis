@@ -9,6 +9,7 @@ from fractal_generation.utils_fractals import (
     generate_fractal_image,
     generate_pyvista_perlin_displacement,
     generate_random_gaussian_displacement,
+    rigid_displacement_and_warp,
 )
 
 
@@ -31,6 +32,14 @@ def create_full_fractal_image(
     freq_max_dis: float | None = None,
     sigma: float | None = None,
     alpha: float | None = None,
+    alpha_rigid_min: float | None = None,
+    alpha_rigid_max: float | None = None,
+    beta_rigid_min: float | None = None,
+    beta_rigid_max: float | None = None,
+    gamma_rigid_min: float | None = None,
+    gamma_rigid_max: float | None = None,
+    translation_min: float | None = None,
+    translation_max: float | None = None,
 ):
     perlin_params = [
         amplitude_min_dis,
@@ -40,11 +49,25 @@ def create_full_fractal_image(
     ]
     gaussian_params = [sigma, alpha]
 
+    rigid_params = [
+        alpha_rigid_min,
+        alpha_rigid_max,
+        beta_rigid_min,
+        beta_rigid_max,
+        gamma_rigid_min,
+        gamma_rigid_max,
+        translation_min,
+        translation_max,
+    ]
+
     has_all_perlin = all(p is not None for p in perlin_params)
     has_any_perlin = any(p is not None for p in perlin_params)
 
     has_all_gaussian = all(p is not None for p in gaussian_params)
     has_any_gaussian = any(p is not None for p in gaussian_params)
+
+    has_all_rigid = all(p is not None for p in rigid_params)
+    has_any_rigid = any(p is not None for p in rigid_params)
 
     assert has_all_perlin == has_any_perlin, (
         "Incomplete Perlin parameters! You must pass all 4 parameters: "
@@ -52,6 +75,10 @@ def create_full_fractal_image(
     )
     assert has_all_gaussian == has_any_gaussian, (
         "Incomplete Gaussian parameters! You must pass both 'sigma' and 'alpha'."
+    )
+    assert has_all_rigid == has_any_rigid, (
+        "Incomplete rigid deformation parameters! You must pass all 4 parameters: "
+        "alpha_rigid_min, alpha_rigid_max, beta_rigid_min, beta_rigid_max, gamma_rigid_min, gamma_rigid_max, translation_min, translation_max."
     )
 
     rng = np.random.default_rng(seed)
@@ -73,44 +100,67 @@ def create_full_fractal_image(
 
     shape = moving.shape
 
-    if has_all_perlin:
-        u = generate_pyvista_perlin_displacement(
-            shape=shape,
-            amplitude_min=amplitude_min_dis,
-            amplitude_max=amplitude_max_dis,
-            freq_min=freq_min_dis,
-            freq_max=freq_max_dis,
-            scale_z=shape[1] / shape[0],
+    if has_all_rigid:
+        i2, u = rigid_displacement_and_warp(
+            moving,
+            alpha_min=alpha_rigid_min,
+            alpha_max=alpha_rigid_max,
+            beta_min=beta_rigid_min,
+            beta_max=beta_rigid_max,
+            gamma_min=gamma_rigid_min,
+            gamma_max=gamma_rigid_max,
+            translation_min=translation_min,
+            translation_max=translation_max,
             rng=rng,
+            scale_z=shape[1] / shape[0],
+            order=3,
+            mode="constant",
         )
-
-    elif has_all_gaussian:
-        u = generate_random_gaussian_displacement(
-            shape=shape, scale_z=shape[1] / shape[0], sigma=6.0, alpha=100.0, rng=rng
-        )
+        img = np.stack([moving, i2], axis=0)
 
     else:
-        raise ValueError(
-            "You must specify either all Perlin displacement parameters "
-            "or all Gaussian parameters (sigma, alpha), but not both or neither."
+        if has_all_perlin:
+            u = generate_pyvista_perlin_displacement(
+                shape=shape,
+                amplitude_min=amplitude_min_dis,
+                amplitude_max=amplitude_max_dis,
+                freq_min=freq_min_dis,
+                freq_max=freq_max_dis,
+                scale_z=shape[1] / shape[0],
+                rng=rng,
+            )
+
+        elif has_all_gaussian:
+            u = generate_random_gaussian_displacement(
+                shape=shape,
+                scale_z=shape[1] / shape[0],
+                sigma=6.0,
+                alpha=100.0,
+                rng=rng,
+            )
+
+        else:
+            raise ValueError(
+                "You must specify either all Perlin displacement parameters "
+                "or all Gaussian parameters (sigma, alpha), but not both or neither."
+            )
+
+        grid_z, grid_y, grid_x = np.meshgrid(
+            np.arange(shape[0]),
+            np.arange(shape[1]),
+            np.arange(shape[2]),
+            indexing="ij",
         )
 
-    grid_z, grid_y, grid_x = np.meshgrid(
-        np.arange(shape[0]),
-        np.arange(shape[1]),
-        np.arange(shape[2]),
-        indexing="ij",
-    )
+        new_z = grid_z + u[0]
+        new_y = grid_y + u[1]
+        new_x = grid_x + u[2]
 
-    new_z = grid_z + u[0]
-    new_y = grid_y + u[1]
-    new_x = grid_x + u[2]
+        indices = [new_z, new_y, new_x]
 
-    indices = [new_z, new_y, new_x]
+        reference = map_coordinates(moving, indices, order=3, mode="reflect")
 
-    reference = map_coordinates(moving, indices, order=3, mode="reflect")
-
-    img = np.stack([reference, moving], axis=0)
+        img = np.stack([reference, moving], axis=0)
 
     return img, u
 
@@ -137,6 +187,14 @@ def main(fractal_params: FractalParams):
                 freq_max_dis=fractal_params.freq_max_dis,
                 sigma=fractal_params.sigma,
                 alpha=fractal_params.alpha,
+                alpha_ridig_min=fractal_params.alpha_rigid_min,
+                alpha_ridig_max=fractal_params.alpha_rigid_max,
+                beta_ridig_min=fractal_params.beta_rigid_min,
+                beta_ridig_max=fractal_params.beta_rigid_max,
+                gamma_ridig_min=fractal_params.gamma_rigid_min,
+                gamma_ridig_max=fractal_params.gamma_rigid_max,
+                translation_min=fractal_params.translation_min,
+                trnaslation_max=fractal_params.translation_max,
             )
 
             output_dir = os.path.join(fractal_params.save_dir)
