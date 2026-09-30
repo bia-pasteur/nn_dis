@@ -9,7 +9,7 @@ from optical_flow.algorithms import fista_of, hs_of, warp
 from scripts.register import get_img_spacing, register
 from scripts.utils import reshape_img
 
-RESULTS_FOLDER = "/Users/josephinelahmani/helix_mount/nn_dis/results/train_3"
+RESULTS_FOLDER = "/Users/josephinelahmani/helix_mount/nn_dis/results/train_5"
 SAVE_PATH = Path("/Users/josephinelahmani/Desktop/nn_dis/data")
 BASE_FOLDER = Path("/Users/josephinelahmani/Desktop/nn_dis/data")
 NAME_IMG_Z = "E_1000_nu_0.4_nb_zones_1_test_z_img.npy"
@@ -383,16 +383,16 @@ def get_metrics(
     # save_path=SAVE_PATH,
 )
 
-get_metrics(
-    img_x,
-    u_gt_x,
-    h_fista_x,
-    h_hs_x,
-    h_vxm_x,
-    h_fista_masked_x,
-    h_hs_masked_x,
-    h_vxm_masked_x,
-)
+# get_metrics(
+#     img_x,
+#     u_gt_x,
+#     h_fista_x,
+#     h_hs_x,
+#     h_vxm_x,
+#     h_fista_masked_x,
+#     h_hs_masked_x,
+#     h_vxm_masked_x,
+# )
 
 (
     img_z,
@@ -411,16 +411,16 @@ get_metrics(
     # save_path=SAVE_PATH,
 )
 
-# get_metrics(
-#     img_z,
-#     u_gt_z,
-#     h_fista_z,
-#     h_hs_z,
-#     h_vxm_z,
-#     h_fista_masked_z,
-#     h_hs_masked_z,
-#     h_vxm_masked_x,
-# )
+get_metrics(
+    img_z,
+    u_gt_z,
+    h_fista_z,
+    h_hs_z,
+    h_vxm_z,
+    h_fista_masked_z,
+    h_hs_masked_z,
+    h_vxm_masked_x,
+)
 
 # (
 #     img_4,
@@ -469,11 +469,11 @@ flows_z = [
 
 flows_name = ["GT", "HS", "HS masked", "FISTA", "FISTA masked", "VXM", "VXM masked"]
 
-get_viewer_flows(img_x, flows_x, flows_name, spacing_x, axes=[2])
-get_viewer_warped_img(img_x, spacing_x, h_fista_x, h_hs_x, h_vxm_x)
+# get_viewer_flows(img_x, flows_x, flows_name, spacing_x, axes=[2])
+# get_viewer_warped_img(img_x, spacing_x, h_fista_x, h_hs_x, h_vxm_x)
 
-# get_viewer_flows(img_z, flows_z, flows_name, spacing_z, axes=[0])
-# get_viewer_warped_img(img_z, spacing_z, h_fista_z, h_hs_z, h_vxm_z)
+get_viewer_flows(img_z, flows_z, flows_name, spacing_z, axes=[0])
+get_viewer_warped_img(img_z, spacing_z, h_fista_z, h_hs_z, h_vxm_z)
 
 # get_viewer_flows(img_4, flows_4, flows_name, spacing_4, axes=[0])
 # get_viewer_warped_img(img_4, spacing_4, h_fista_4, h_hs_4, h_vxm_4)
