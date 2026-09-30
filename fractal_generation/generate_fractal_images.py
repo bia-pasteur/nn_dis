@@ -187,14 +187,14 @@ def main(fractal_params: FractalParams):
                 freq_max_dis=fractal_params.freq_max_dis,
                 sigma=fractal_params.sigma,
                 alpha=fractal_params.alpha,
-                alpha_ridig_min=fractal_params.alpha_rigid_min,
-                alpha_ridig_max=fractal_params.alpha_rigid_max,
-                beta_ridig_min=fractal_params.beta_rigid_min,
-                beta_ridig_max=fractal_params.beta_rigid_max,
-                gamma_ridig_min=fractal_params.gamma_rigid_min,
-                gamma_ridig_max=fractal_params.gamma_rigid_max,
+                alpha_rigid_min=fractal_params.alpha_rigid_min,
+                alpha_rigid_max=fractal_params.alpha_rigid_max,
+                beta_rigid_min=fractal_params.beta_rigid_min,
+                beta_rigid_max=fractal_params.beta_rigid_max,
+                gamma_rigid_min=fractal_params.gamma_rigid_min,
+                gamma_rigid_max=fractal_params.gamma_rigid_max,
                 translation_min=fractal_params.translation_min,
-                trnaslation_max=fractal_params.translation_max,
+                translation_max=fractal_params.translation_max,
             )
 
             output_dir = os.path.join(fractal_params.save_dir)
