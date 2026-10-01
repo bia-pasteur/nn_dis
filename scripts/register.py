@@ -43,7 +43,6 @@ importlib.reload(network.models)
 
 def get_img_spacing(
     path_img: Path,
-    load_ugt: bool = False,
     target_d: int = 32,
     target_h: int = 128,
     target_w: int = 128,
