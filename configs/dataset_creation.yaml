@@ -1,4 +1,4 @@
 dataset_creation: 
-    folder: '/pasteur/helix/projects/bia/jlahmani/data/fractals/perlin/all_data'
+    folder: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian/all_data'
     seed: 42
     gap_max: 7

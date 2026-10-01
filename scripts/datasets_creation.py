@@ -1,6 +1,13 @@
-"""This is useful to create the train, validation and test folders"""
+"""This is useful to create the train, validation and test folders.
+
+Unifies the two kinds of inputs:
+    - *_img.npy files: synthetic images, split by whole file and copied as-is
+    - any other file:  loaded through BioImage, reordered to TZYXC, split by
+                       frame pairs, with physical pixel sizes preserved
+"""
 
 import os
+import shutil
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -10,84 +17,80 @@ from pathlib import Path
 import jsonargparse
 import numpy as np
 import tifffile
+from bioio import BioImage
 from sklearn.model_selection import train_test_split
 
 from config import DatasetCreation
 
 
 def load_order_clean(image_path: str):
-    """
-    Loads a TIFF image, ensures it follows the TZYXC axis order and normalizes it
-
-    Args:
-        image_path (str): Path to the input TIFF image.
-
-    Returns:
-        tuple: A tuple containing the normalized image as a numpy
-                array and the image's filename without extension.∏
-    """
     # Store the name of the image for the plots
     image_name = os.path.basename(image_path)
     image_name_without_ext = os.path.splitext(image_name)[0]
 
-    # Load the TIFF image
-    with tifffile.TiffFile(image_path) as tif:
-        image = tif.series[0].asarray()  # Read the image array
+    # Load the BioImage image
+    bio_img = BioImage(image_path)
 
-        # Check the axes order
-        axes = tif.series[0].axes
+    # The expected order is TZYXC
+    image = bio_img.get_image_data("TZYXC").astype(np.float32)
 
-        # The expected order is TZYXC
-        expected_axes = ["T", "Z", "Y", "X", "C"]
+    # Extract the physical size of the pixels
+    physical_pixel_sizes = bio_img.physical_pixel_sizes
 
-        if "C" not in axes:
-            image = image[..., np.newaxis]  # Add C as the last axis
-            axes += "C"
-
-        if "Z" not in axes:
-            # Insert a singleton Z-dimension before Y
-            y_index = axes.find("Y")
-            image = np.expand_dims(image, axis=y_index)
-            axes = axes[:y_index] + "Z" + axes[y_index:]
-
-        if axes != expected_axes:
-            # Swap axes based on the current axes order
-            axis_order = {axis: idx for idx, axis in enumerate(axes)}
-
-            # Create a mapping of the current axes to the target axes
-            swap_order = [axis_order[axis] for axis in expected_axes]
-
-            # Swap the axes to match TZYXC
-            image = np.transpose(image, swap_order)
-
-    # Normalize the image
+    # Normalize
     image = image / image.max()
 
-    return image, image_name_without_ext
+    return image, image_name_without_ext, physical_pixel_sizes
 
 
 def main(dataset_creation: DatasetCreation):
     """
-    Main entry for training, evaluation and testing datasets
-    For now, removing the images with 4 channels
+    Main entry for training, evaluation and testing datasets creation.
+
+    Synthetic *_img.npy files are split by whole file and copied as-is.
+    Other images are split by frame pairs (t, t + gap) for gap in 1..gap_max.
+
+    For now, removing the images with 4 channels.
 
     Args:
         dataset_creation (DatasetCreation): Parameters for the datasets
     """
-
     folder_images = Path(dataset_creation.folder)
     folder = folder_images.parent
 
-    # Extracting the files
-    tiff_files = sorted(folder_images.glob("*.tif*"))
-
-    # Creating the folders
     for split_name in ["train", "val", "test"]:
         (folder / split_name).mkdir(parents=True, exist_ok=True)
 
-    for f in tiff_files:
-        # Load the image
-        img, name = load_order_clean(f)
+    # Synthetic (and fractal) images end in .npy
+    img_files = sorted(folder_images.glob("*_img.npy"))
+
+    if img_files:
+        train_files, temp_files = train_test_split(
+            img_files, test_size=0.3, random_state=dataset_creation.seed
+        )
+        val_files, test_files = train_test_split(
+            temp_files, test_size=0.5, random_state=dataset_creation.seed
+        )
+
+        def copy_files(files, split_name):
+            split_folder = folder / split_name
+            for f in files:
+                shutil.copy(f, split_folder / f.name)
+
+        copy_files(train_files, "train")
+        copy_files(val_files, "val")
+        copy_files(test_files, "test")
+
+    # Other images (.tif, .tiff...) are worked using bioio.
+    for f in sorted(folder_images.glob("*.tif*")):
+        img, name, pps = load_order_clean(f)
+
+        ome_metadata = {"axes": "TCZYX"}
+        for dim, value in [("Z", pps.Z), ("Y", pps.Y), ("X", pps.X)]:
+            if value is not None:
+                ome_metadata[f"PhysicalSize{dim}"] = float(value)
+                ome_metadata[f"PhysicalSize{dim}Unit"] = "µm"
+
         time_frames = img.shape[0]
 
         frame_pairs = [
@@ -113,7 +116,8 @@ def main(dataset_creation: DatasetCreation):
         for split_name, pairs in split_map.items():
             for t1, t2 in pairs:
                 # Stack the two frames along a time dimension
-                pair = img[[t1, t2]]  # shape (2, H, W, C)
+                pair = img[[t1, t2]]  # shape (2, Z, H, W, C)
+
                 pair_tczyx = np.moveaxis(pair, -1, 1)  # (T,C,Z,Y,X)
 
                 # Skip 4‑channel images (e.g., RGBA)
@@ -123,9 +127,7 @@ def main(dataset_creation: DatasetCreation):
                 out_name = f"{name}_t{t1:04d}_t{t2:04d}.tiff"
                 out_path = folder / split_name / out_name
 
-                tifffile.imwrite(
-                    out_path, pair_tczyx, ome=True, metadata={"axes": "TCZYX"}
-                )
+                tifffile.imwrite(out_path, pair_tczyx, ome=True, metadata=ome_metadata)
 
                 del pair, pair_tczyx
 
