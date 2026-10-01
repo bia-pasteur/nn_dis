@@ -72,12 +72,12 @@ class TrainConfig:
     mask: bool = False
     combine: bool = False
     path_gt: str | None = None
-    train_data_rigid: str
-    val_data_rigid: str
-    train_data_rigid_gaussian: str
-    val_data_rigid_gaussian: str
-    finetune_lr: float
-    finetune_epochs: int
+    train_data_rigid: str | None = None
+    val_data_rigid: str | None = None
+    train_data_rigid_gaussian: str | None = None
+    val_data_rigid_gaussian: str | None = None
+    finetune_lr: float | None = None
+    finetune_epochs: int | None = None
 
 
 @dataclass
