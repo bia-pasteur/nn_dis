@@ -159,6 +159,12 @@ def rigid_displacement_and_warp(
     order: int = 1,
     mode: str = "constant",
 ):
+    assert (
+        alpha_min < alpha_max
+        and beta_min < beta_max
+        and gamma_min < gamma_max
+        and translation_min < translation_max
+    ), "Min values must be inferior to max values, check config file !"
     alpha = rng.uniform(np.deg2rad(alpha_min), np.deg2rad(alpha_max))
     beta = rng.uniform(np.deg2rad(beta_min), np.deg2rad(beta_max))
     gamma = rng.uniform(np.deg2rad(gamma_min), np.deg2rad(gamma_max))
@@ -221,6 +227,15 @@ def rigid_displacement_and_warp(
     input_y = coords_input[1]
     input_x = coords_input[0]
 
+    u_backward = np.stack(
+        [
+            input_z - zz,
+            input_y - yy,
+            input_x - xx,
+        ],
+        axis=0,
+    )
+
     image_2 = map_coordinates(
         image,
         coordinates=[input_z, input_y, input_x],
@@ -228,7 +243,7 @@ def rigid_displacement_and_warp(
         mode=mode,
     )
 
-    return image_2, displacement
+    return image_2, displacement, u_backward
 
 
 def generate_pyvista_perlin_displacement(
@@ -240,6 +255,9 @@ def generate_pyvista_perlin_displacement(
     scale_z: float,
     rng: np.random.Generator,
 ):
+    assert amplitude_min < amplitude_max and freq_min < freq_max, (
+        "Min values must be inferior to max values, check config file !"
+    )
     assert len(shape) == 3
     nz, ny, nx = shape
 
@@ -278,23 +296,96 @@ def generate_pyvista_perlin_displacement(
 
 def generate_random_gaussian_displacement(
     shape: list[int],
-    sigma: float,
-    alpha: float,
+    sigma_min: float,
+    sigma_max: float,
+    alpha_min: float,
+    alpha_max: float,
     scale_z: float,
     rng: np.random.Generator,
 ):
+    assert alpha_min < alpha_max and sigma_min < sigma_max, (
+        "Min values must be inferior to max values, check config file !"
+    )
     assert len(shape) == 3
 
-    uz = (
-        gaussian_filter(rng.standard_normal(shape), sigma=sigma, mode="reflect")
-        * alpha
-        / scale_z
-    )
-    uy = (
-        gaussian_filter(rng.standard_normal(shape), sigma=sigma, mode="reflect") * alpha
-    )
-    ux = (
-        gaussian_filter(rng.standard_normal(shape), sigma=sigma, mode="reflect") * alpha
-    )
+    sigma = rng.uniform(sigma_min, sigma_max)
+    alpha = rng.uniform(alpha_min, alpha_max)
+
+    def smooth_and_normalize() -> np.ndarray:
+        field = gaussian_filter(
+            rng.standard_normal(shape),
+            sigma=sigma,
+            mode="reflect",
+        )
+
+        field = field / (np.max(np.abs(field)) + 1e-8)
+        field = field * alpha
+
+        return field
+
+    uz = smooth_and_normalize() / scale_z
+    uy = smooth_and_normalize()
+    ux = smooth_and_normalize()
 
     return np.stack([uz, uy, ux], axis=0)
+
+
+def rigid_and_gaussian_warp(
+    image: np.ndarray,
+    rng: np.random.Generator,
+    alpha_min: float,
+    alpha_max: float,
+    beta_min: float,
+    beta_max: float,
+    gamma_min: float,
+    gamma_max: float,
+    translation_min: float,
+    translation_max: float,
+    sigma_gaussian_min: float,
+    sigma_gaussian_max: float,
+    alpha_gaussian_min: float,
+    alpha_gaussian_max: float,
+    scale_z: float,
+    order: int = 3,
+    mode: str = "reflect",
+):
+    shape = image.shape
+
+    assert (
+        alpha_min < alpha_max
+        and beta_min < beta_max
+        and gamma_min < gamma_max
+        and translation_min < translation_max
+        and sigma_gaussian_min < sigma_gaussian_max
+        and alpha_gaussian_min < alpha_gaussian_max
+    ), "Min values must be inferior to max values, check config file !"
+
+    _, _, u_rigid = rigid_displacement_and_warp(
+        image=image,
+        alpha_min=alpha_min,
+        alpha_max=alpha_max,
+        beta_min=beta_min,
+        beta_max=beta_max,
+        gamma_min=gamma_min,
+        gamma_max=gamma_max,
+        translation_min=translation_min,
+        translation_max=translation_max,
+        rng=rng,
+        scale_z=scale_z,
+        order=order,
+        mode=mode,
+    )
+
+    u_gaussian = generate_random_gaussian_displacement(
+        shape=shape,
+        sigma_min=sigma_gaussian_min,
+        sigma_max=sigma_gaussian_max,
+        alpha_min=alpha_gaussian_min,
+        alpha_max=alpha_gaussian_max,
+        scale_z=scale_z,
+        rng=rng,
+    )
+
+    u = u_rigid + u_gaussian
+
+    return u

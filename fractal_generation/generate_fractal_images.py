@@ -9,6 +9,7 @@ from fractal_generation.utils_fractals import (
     generate_fractal_image,
     generate_pyvista_perlin_displacement,
     generate_random_gaussian_displacement,
+    rigid_and_gaussian_warp,
     rigid_displacement_and_warp,
 )
 
@@ -30,8 +31,10 @@ def create_full_fractal_image(
     amplitude_max_dis: float | None = None,
     freq_min_dis: float | None = None,
     freq_max_dis: float | None = None,
-    sigma: float | None = None,
-    alpha: float | None = None,
+    sigma_gaussian_min: float | None = None,
+    sigma_gaussian_max: float | None = None,
+    alpha_gaussian_min: float | None = None,
+    alpha_gaussian_max: float | None = None,
     alpha_rigid_min: float | None = None,
     alpha_rigid_max: float | None = None,
     beta_rigid_min: float | None = None,
@@ -41,14 +44,20 @@ def create_full_fractal_image(
     translation_min: float | None = None,
     translation_max: float | None = None,
 ):
+
+    rng = np.random.default_rng(seed)
     perlin_params = [
         amplitude_min_dis,
         amplitude_max_dis,
         freq_min_dis,
         freq_max_dis,
     ]
-    gaussian_params = [sigma, alpha]
-
+    gaussian_params = [
+        sigma_gaussian_min,
+        sigma_gaussian_max,
+        alpha_gaussian_min,
+        alpha_gaussian_max,
+    ]
     rigid_params = [
         alpha_rigid_min,
         alpha_rigid_max,
@@ -83,7 +92,7 @@ def create_full_fractal_image(
 
     rng = np.random.default_rng(seed)
 
-    moving = generate_fractal_image(
+    fractal_img = generate_fractal_image(
         rng=rng,
         n_functions=n_functions,
         min_singular_value=min_singular_value,
@@ -98,25 +107,47 @@ def create_full_fractal_image(
         nb_iterations=nb_iterations,
     )
 
-    shape = moving.shape
+    shape = fractal_img.shape
 
     if has_all_rigid:
-        i2, u = rigid_displacement_and_warp(
-            moving,
-            alpha_min=alpha_rigid_min,
-            alpha_max=alpha_rigid_max,
-            beta_min=beta_rigid_min,
-            beta_max=beta_rigid_max,
-            gamma_min=gamma_rigid_min,
-            gamma_max=gamma_rigid_max,
-            translation_min=translation_min,
-            translation_max=translation_max,
-            rng=rng,
-            scale_z=shape[1] / shape[0],
-            order=3,
-            mode="constant",
-        )
-        img = np.stack([moving, i2], axis=0)
+        if has_all_gaussian:
+            u = rigid_and_gaussian_warp(
+                image=fractal_img,
+                alpha_min=alpha_rigid_min,
+                alpha_max=alpha_rigid_max,
+                beta_min=beta_rigid_min,
+                beta_max=beta_rigid_max,
+                gamma_min=gamma_rigid_min,
+                gamma_max=gamma_rigid_max,
+                translation_min=translation_min,
+                translation_max=translation_max,
+                sigma_gaussian_min=sigma_gaussian_min,
+                sigma_gaussian_max=sigma_gaussian_max,
+                alpha_gaussian_min=alpha_gaussian_min,
+                alpha_gaussian_max=alpha_gaussian_max,
+                rng=rng,
+                scale_z=shape[1] / shape[0],
+                order=3,
+                mode="constant",
+            )
+            # img = np.stack([fractal_img, fractal_deformed], axis=0)
+        else:
+            fractal_deformed, u, _ = rigid_displacement_and_warp(
+                image=fractal_img,
+                alpha_min=alpha_rigid_min,
+                alpha_max=alpha_rigid_max,
+                beta_min=beta_rigid_min,
+                beta_max=beta_rigid_max,
+                gamma_min=gamma_rigid_min,
+                gamma_max=gamma_rigid_max,
+                translation_min=translation_min,
+                translation_max=translation_max,
+                rng=rng,
+                scale_z=shape[1] / shape[0],
+                order=3,
+                mode="constant",
+            )
+            img = np.stack([fractal_img, fractal_deformed], axis=0)
 
     else:
         if has_all_perlin:
@@ -127,40 +158,43 @@ def create_full_fractal_image(
                 freq_min=freq_min_dis,
                 freq_max=freq_max_dis,
                 scale_z=shape[1] / shape[0],
-                rng=rng,
             )
 
         elif has_all_gaussian:
             u = generate_random_gaussian_displacement(
                 shape=shape,
+                sigma_min=sigma_gaussian_min,
+                sigma_max=sigma_gaussian_max,
+                alpha_min=alpha_gaussian_min,
+                alpha_max=alpha_gaussian_max,
                 scale_z=shape[1] / shape[0],
-                sigma=6.0,
-                alpha=100.0,
                 rng=rng,
             )
 
         else:
             raise ValueError(
-                "You must specify either all Perlin displacement parameters "
-                "or all Gaussian parameters (sigma, alpha), but not both or neither."
+                "You must specify EITHER all Perlin displacement parameters "
+                "OR all Gaussian parameters (sigma, alpha), but NOT both or neither."
             )
 
-        grid_z, grid_y, grid_x = np.meshgrid(
-            np.arange(shape[0]),
-            np.arange(shape[1]),
-            np.arange(shape[2]),
-            indexing="ij",
-        )
+    grid_z, grid_y, grid_x = np.meshgrid(
+        np.arange(shape[0]),
+        np.arange(shape[1]),
+        np.arange(shape[2]),
+        indexing="ij",
+    )
 
-        new_z = grid_z + u[0]
-        new_y = grid_y + u[1]
-        new_x = grid_x + u[2]
+    new_z = grid_z + u[0]
+    new_y = grid_y + u[1]
+    new_x = grid_x + u[2]
 
-        indices = [new_z, new_y, new_x]
+    indices = [new_z, new_y, new_x]
 
-        reference = map_coordinates(moving, indices, order=3, mode="reflect")
+    fractal_deformed = map_coordinates(fractal_img, indices, order=3, mode="reflect")
 
-        img = np.stack([reference, moving], axis=0)
+    img = np.stack(
+        [fractal_deformed, fractal_img], axis=0
+    )  # deformed -> initial because deformed is created by warping initial by u
 
     return img, u
 
@@ -185,8 +219,10 @@ def main(fractal_params: FractalParams):
                 amplitude_max_dis=fractal_params.amplitude_max_dis,
                 freq_min_dis=fractal_params.freq_min_dis,
                 freq_max_dis=fractal_params.freq_max_dis,
-                sigma=fractal_params.sigma,
-                alpha=fractal_params.alpha,
+                sigma_gaussian_min=fractal_params.sigma_gaussian_min,
+                sigma_gaussian_max=fractal_params.sigma_gaussian_max,
+                alpha_gaussian_min=fractal_params.alpha_gaussian_min,
+                alpha_gaussian_max=fractal_params.alpha_gaussian_max,
                 alpha_rigid_min=fractal_params.alpha_rigid_min,
                 alpha_rigid_max=fractal_params.alpha_rigid_max,
                 beta_rigid_min=fractal_params.beta_rigid_min,

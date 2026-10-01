@@ -25,8 +25,10 @@ class FractalParams:
     amplitude_max_dis: float | None
     freq_min_dis: float | None
     freq_max_dis: float | None
-    alpha: float | None
-    sigma: float | None
+    sigma_gaussian_min: float | None
+    sigma_gaussian_max: float | None
+    alpha_gaussian_min: float | None
+    alpha_gaussian_max: float | None
     alpha_rigid_min: float | None
     alpha_rigid_max: float | None
     beta_rigid_min: float | None

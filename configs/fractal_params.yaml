@@ -1,5 +1,5 @@
 fractal_params:
-  save_dir: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid'
+  save_dir: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian'
   seeds: 100
   nb_functions: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
   nb_iterations: 500000
@@ -12,17 +12,19 @@ fractal_params:
   pad_x: 20
   pad_y: 20
   pad_z: 5
-  amplitude_min_dis: null #5.0
-  amplitude_max_dis: null #15.0
-  freq_min_dis: null #0.01
-  freq_max_dis: null #0.07
-  sigma: null
-  alpha: null
+  amplitude_min_dis: null # 5.0
+  amplitude_max_dis: null # 15.0
+  freq_min_dis: null # 0.01
+  freq_max_dis: null # 0.07
+  sigma_gaussian_min: 5.0
+  sigma_gaussian_max: 10.0
+  alpha_gaussian_min: 5.0
+  alpha_gaussian_max: 15.0
   alpha_rigid_min: -10
   alpha_rigid_max: 10
   beta_rigid_min: -10
   beta_rigid_max: 10
   gamma_rigid_min: -10
   gamma_rigid_max: 10
-  translation_min: -20.0
-  translation_max: 20.0
+  translation_min: -15.0
+  translation_max: 15.0
