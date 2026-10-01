@@ -24,6 +24,6 @@ train_config:
     path_gt_rigid: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid/all_data' 
     train_data_rigid_gaussian: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian/train' 
     val_data_rigid_gaussian: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian/val'
-    path_gt_rigid: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian/all_data' 
+    path_gt_rigid_gaussian: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian/all_data' 
     finetune_lr: 1e-5
     finetune_epochs: 10
