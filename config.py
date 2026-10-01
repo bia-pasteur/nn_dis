@@ -74,7 +74,7 @@ class TrainConfig:
     path_gt: str | None = None
     train_data_rigid: str | None = None
     val_data_rigid: str | None = None
-    path_gt_rigig: str | None = None
+    path_gt_rigid: str | None = None
     train_data_rigid_gaussian: str | None = None
     val_data_rigid_gaussian: str | None = None
     path_gt_rigid_gaussian: str | None = None
