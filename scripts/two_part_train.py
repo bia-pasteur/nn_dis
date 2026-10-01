@@ -198,7 +198,7 @@ def main(train_config: TrainConfig):
         transform=get_transforms(),
         channel=train_config.channel,
         mask=train_config.mask,
-        path_gt=Path(train_config.path_gt),
+        path_gt=Path(train_config.path_gt_rigid),
     )
     train_loader = DataLoader(
         train_dataset,
@@ -211,7 +211,7 @@ def main(train_config: TrainConfig):
         Path(train_config.val_data_rigid),
         channel=train_config.channel,
         mask=train_config.mask,
-        path_gt=Path(train_config.path_gt),
+        path_gt=Path(train_config.path_gt_rigid),
     )
     validation_loader = DataLoader(
         validation_dataset,
@@ -303,7 +303,7 @@ def main(train_config: TrainConfig):
         transform=get_transforms(),
         channel=train_config.channel,
         mask=train_config.mask,
-        path_gt=Path(train_config.path_gt),
+        path_gt=Path(train_config.path_gt_rigid_gaussian),
     )
 
     finetune_train_loader = DataLoader(
@@ -318,7 +318,7 @@ def main(train_config: TrainConfig):
         Path(train_config.val_data_rigid_gaussian),
         channel=train_config.channel,
         mask=train_config.mask,
-        path_gt=Path(train_config.path_gt),
+        path_gt=Path(train_config.path_gt_rigid_gaussian),
     )
 
     finetune_validation_loader = DataLoader(
