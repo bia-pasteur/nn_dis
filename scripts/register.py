@@ -179,9 +179,8 @@ def load_model(
     return model
 
 
-def compose_flows(transformer, flow1, flow2):
-    warped_flow2 = transformer(flow2, flow1)
-    return flow1 + warped_flow2
+def compose_flows(transformer, previous_flow, new_flow):
+    return new_flow + transformer(previous_flow, new_flow)
 
 
 def register(
@@ -253,26 +252,20 @@ def register(
 
     warped_moving = moving
     total_displacement = None
-    # with torch.no_grad():
-    #     for _ in range(nb_warps):
-    #         displacement, warped_moving = model(
-    #             ref, warped_moving, return_warped_moving=True
-    #         )
-    #         if total_displacement is None:
-    #             total_displacement = displacement
-    #         else:
-    #             total_displacement += displacement
 
     with torch.no_grad():
         for _ in range(nb_warps):
             displacement, warped_moving = model(
                 ref, warped_moving, return_warped_moving=True
             )
+
             if total_displacement is None:
                 total_displacement = displacement
             else:
                 total_displacement = compose_flows(
-                    model.transformer, total_displacement, displacement
+                    model.transformer,
+                    total_displacement,
+                    displacement,
                 )
 
     return (
