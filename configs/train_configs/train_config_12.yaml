@@ -15,7 +15,7 @@ train_config:
     train_data: '/pasteur/helix/projects/bia/jlahmani/data/micro/train' 
     val_data: '/pasteur/helix/projects/bia/jlahmani/data/micro/val'
     reduction: "mean"
-    channel: null
+    channel: 0
     mask: False
     combine: True
     path_gt: null #'/pasteur/helix/projects/bia/jlahmani/data/fractals/perlin' 

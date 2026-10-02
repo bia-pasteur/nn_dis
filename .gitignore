@@ -8,3 +8,4 @@ logs_per_im.csv
 computed_flows
 tests/
 *.npy
+data/
