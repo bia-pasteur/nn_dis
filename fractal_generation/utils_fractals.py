@@ -1,6 +1,6 @@
 import numpy as np
 import pyvista as pv
-from scipy.ndimage import gaussian_filter, map_coordinates
+from scipy.ndimage import gaussian_filter
 
 from fractal_generation.fractals_generation import IFSFunction3D
 
@@ -165,6 +165,7 @@ def rigid_displacement_and_warp(
         and gamma_min < gamma_max
         and translation_min < translation_max
     ), "Min values must be inferior to max values, check config file !"
+
     alpha = rng.uniform(np.deg2rad(alpha_min), np.deg2rad(alpha_max))
     beta = rng.uniform(np.deg2rad(beta_min), np.deg2rad(beta_max))
     gamma = rng.uniform(np.deg2rad(gamma_min), np.deg2rad(gamma_max))
@@ -213,37 +214,7 @@ def rigid_displacement_and_warp(
 
     displacement = np.stack([uz, uy, ux], axis=0)
 
-    coords_output = coords_1
-
-    centered_output = (
-        coords_output - center[:, None, None, None] - t[:, None, None, None]
-    )
-
-    coords_input = (
-        np.einsum("ji,jzyx->izyx", R, centered_output) + center[:, None, None, None]
-    )
-
-    input_z = coords_input[2] / scale_z
-    input_y = coords_input[1]
-    input_x = coords_input[0]
-
-    u_backward = np.stack(
-        [
-            input_z - zz,
-            input_y - yy,
-            input_x - xx,
-        ],
-        axis=0,
-    )
-
-    image_2 = map_coordinates(
-        image,
-        coordinates=[input_z, input_y, input_x],
-        order=order,
-        mode=mode,
-    )
-
-    return image_2, displacement, u_backward
+    return displacement
 
 
 def generate_pyvista_perlin_displacement(
@@ -360,7 +331,7 @@ def rigid_and_gaussian_warp(
         and alpha_gaussian_min < alpha_gaussian_max
     ), "Min values must be inferior to max values, check config file !"
 
-    _, _, u_rigid = rigid_displacement_and_warp(
+    u_rigid = rigid_displacement_and_warp(
         image=image,
         alpha_min=alpha_min,
         alpha_max=alpha_max,

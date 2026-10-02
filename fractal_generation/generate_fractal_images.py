@@ -2,7 +2,7 @@ import os
 
 import jsonargparse
 import numpy as np
-from scipy.ndimage import map_coordinates
+from scipy.interpolate import griddata
 
 from config import FractalParams
 from fractal_generation.utils_fractals import (
@@ -130,9 +130,8 @@ def create_full_fractal_image(
                 order=3,
                 mode="constant",
             )
-            # img = np.stack([fractal_img, fractal_deformed], axis=0)
         else:
-            fractal_deformed, u, _ = rigid_displacement_and_warp(
+            u = rigid_displacement_and_warp(
                 image=fractal_img,
                 alpha_min=alpha_rigid_min,
                 alpha_max=alpha_rigid_max,
@@ -147,7 +146,6 @@ def create_full_fractal_image(
                 order=3,
                 mode="constant",
             )
-            img = np.stack([fractal_img, fractal_deformed], axis=0)
 
     else:
         if has_all_perlin:
@@ -158,6 +156,7 @@ def create_full_fractal_image(
                 freq_min=freq_min_dis,
                 freq_max=freq_max_dis,
                 scale_z=shape[1] / shape[0],
+                rng=rng,
             )
 
         elif has_all_gaussian:
@@ -188,13 +187,25 @@ def create_full_fractal_image(
     new_y = grid_y + u[1]
     new_x = grid_x + u[2]
 
-    indices = [new_z, new_y, new_x]
+    destination_points = np.column_stack(
+        [
+            new_z.ravel(),
+            new_y.ravel(),
+            new_x.ravel(),
+        ]
+    )
 
-    fractal_deformed = map_coordinates(fractal_img, indices, order=3, mode="reflect")
+    values = fractal_img.ravel()
 
-    img = np.stack(
-        [fractal_deformed, fractal_img], axis=0
-    )  # deformed -> initial because deformed is created by warping initial by u
+    fractal_deformed = griddata(
+        points=destination_points,
+        values=values,
+        xi=(grid_z, grid_y, grid_x),
+        method="nearest",
+        fill_value=0.0,
+    )
+
+    img = np.stack([fractal_img, fractal_deformed], axis=0)
 
     return img, u
 
@@ -233,6 +244,24 @@ def main(fractal_params: FractalParams):
                 translation_max=fractal_params.translation_max,
             )
 
+            import napari
+
+            from optical_flow.algorithms import warp
+
+            warped_img = warp(img[1], u)
+
+            viewer = napari.Viewer()
+
+            viewer.add_image(
+                img,
+                scale=[fractal_params.size_img_x / fractal_params.size_img_z, 1.0, 1.0],
+            )
+            viewer.add_image(
+                warped_img,
+                scale=[fractal_params.size_img_x / fractal_params.size_img_z, 1.0, 1.0],
+            )
+
+            napari.run()
             output_dir = os.path.join(fractal_params.save_dir)
 
             os.makedirs(output_dir, exist_ok=True)

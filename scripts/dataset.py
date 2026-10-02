@@ -149,8 +149,9 @@ class TractionDataset(Dataset):
         data = (
             img_raw[:, self.channel] if self.channel is not None else img_raw
         )  # Normalize the channel if provided
-        q1, q99 = np.quantile(data, [0.01, 0.99])
-        img = np.clip((data - q1) / (q99 - q1), 0, 1)  # (2, Z, H, W)
+        # q1, q99 = np.quantile(data, [0.01, 0.99])
+        # img = np.clip((data - q1) / (q99 - q1), 0, 1)  # (2, Z, H, W)
+        img = np.clip(data / data.max(), 0, 1)
 
         # Extract reference and moving images (I1 -> I2)
         ref_numpy = img[0]
@@ -183,6 +184,6 @@ class TractionDataset(Dataset):
             "ref": subject.stack.data[0:1],  # I1
             "moving": subject.stack.data[1:2],  # I2
             "mask": mask_2d,
-            # "u_gt": u_gt,
+            "u_gt": u_gt,
             "mask_gt": mask_gt,
         }

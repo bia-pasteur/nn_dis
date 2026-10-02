@@ -251,7 +251,7 @@ def warp(image: np.ndarray, flow: np.ndarray, spacing: tuple[int] = None) -> np.
     # No channels
     assert image.ndim == flow.ndim - 1
     return map_coordinates(
-        image, np.indices(image.shape, flow.dtype) + flow_pix, mode="nearest", order=1
+        image, np.indices(image.shape, flow.dtype) + flow_pix, mode="constant", order=1
     )
 
 
