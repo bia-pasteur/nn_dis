@@ -3,10 +3,10 @@ train_config:
     epochs: 150
     workers: 4
     batch_size: 10
-    lr: 5e-4
+    lr: 1e-3
     alpha_param: 0
     beta_param: 0.01
-    gt_param: 0.001
+    gt_param: 0.1
     gpu: 0
     save_every: 100
     features: [16, 32, 32, 64, 64]
@@ -25,5 +25,5 @@ train_config:
     train_data_rigid_gaussian: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian/train' 
     val_data_rigid_gaussian: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian/val'
     path_gt_rigid_gaussian: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian/all_data' 
-    finetune_lr: 1e-5
+    finetune_lr: 1e-4
     finetune_epochs: 500

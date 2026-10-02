@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Read(//Users/josephinelahmani/helix_mount/nn_dis/results/**)",
-      "Bash(python3)"
-    ]
-  }
-}

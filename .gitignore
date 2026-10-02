@@ -5,6 +5,7 @@ results
 .vscode
 logs_per_im.csv
 .claude
+.ruff_cache
 computed_flows
 tests/
 *.npy
