@@ -20,7 +20,7 @@ from tqdm import tqdm
 
 import network
 from config import TrainConfig
-from scripts.dataset import TractionDataset, get_transforms
+from scripts.dataset import TractionDataset
 
 
 def update_log(log_dict: dict, update: dict) -> None:
@@ -195,7 +195,7 @@ def main(train_config: TrainConfig):
     # Rigid data pre-training
     train_dataset = TractionDataset(
         Path(train_config.train_data_rigid),
-        transform=get_transforms(),
+        transform=None,  # get_transforms(),
         channel=train_config.channel,
         mask=train_config.mask,
         path_gt=Path(train_config.path_gt_rigid),
@@ -300,7 +300,7 @@ def main(train_config: TrainConfig):
     # New training dataset
     finetune_train_dataset = TractionDataset(
         Path(train_config.train_data_rigid_gaussian),
-        transform=get_transforms(),
+        transform=None,  # get_transforms(),
         channel=train_config.channel,
         mask=train_config.mask,
         path_gt=Path(train_config.path_gt_rigid_gaussian),

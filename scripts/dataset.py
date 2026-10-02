@@ -160,7 +160,7 @@ class TractionDataset(Dataset):
         ref = reshape_img(ref_numpy, self.max_depth)  # (Z, H, W)
         moving = reshape_img(moving_numpy, self.max_depth)  # (Z, H, W)
 
-        mask_gt = ref > 0.05
+        mask_gt = ref > 0.01
 
         mask = (
             compute_mask(np.stack([ref, moving], axis=0))
