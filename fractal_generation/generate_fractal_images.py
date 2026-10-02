@@ -244,24 +244,6 @@ def main(fractal_params: FractalParams):
                 translation_max=fractal_params.translation_max,
             )
 
-            import napari
-
-            from optical_flow.algorithms import warp
-
-            warped_img = warp(img[1], u)
-
-            viewer = napari.Viewer()
-
-            viewer.add_image(
-                img,
-                scale=[fractal_params.size_img_x / fractal_params.size_img_z, 1.0, 1.0],
-            )
-            viewer.add_image(
-                warped_img,
-                scale=[fractal_params.size_img_x / fractal_params.size_img_z, 1.0, 1.0],
-            )
-
-            napari.run()
             output_dir = os.path.join(fractal_params.save_dir)
 
             os.makedirs(output_dir, exist_ok=True)
