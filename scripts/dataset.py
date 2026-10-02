@@ -123,7 +123,6 @@ class TractionDataset(Dataset):
 
         if ext == ".npy":
             img_raw = np.load(img_path)
-            mask_gt = img_raw[0] > 0.05
             self.channel = None
 
             if self.path_gt:
@@ -184,6 +183,6 @@ class TractionDataset(Dataset):
             "ref": subject.stack.data[0:1],  # I1
             "moving": subject.stack.data[1:2],  # I2
             "mask": mask_2d,
-            "u_gt": u_gt,
+            # "u_gt": u_gt,
             "mask_gt": mask_gt,
         }
