@@ -5,7 +5,7 @@ train_config:
     batch_size: 10
     lr: 5e-4
     alpha_param: 0
-    beta_param: 0.1
+    beta_param: 0.01
     gt_param: 0.005
     gpu: 0
     save_every: 100
