@@ -81,7 +81,7 @@ def epoch_(
         "loss_mse": [],
         "loss_grad": [],
         "loss_hess": [],
-        "loss_gt": [],
+        # "loss_gt": [],
         "max_dis": [],
         "avg_dis": [],
     }
@@ -100,8 +100,8 @@ def epoch_(
         ref = batch["ref"].to(device)
         moving = batch["moving"].to(device)
         mask = batch["mask"].to(device)
-        u_gt = batch["u_gt"].to(device)
-        mask_gt = batch["mask_gt"].to(device)
+        # u_gt = batch["u_gt"].to(device)
+        # mask_gt = batch["mask_gt"].to(device)
 
         # Get the displacement and the warped ref image from the model
         displacement, warped_moving = model(ref, moving, return_warped_moving=True)
@@ -116,13 +116,13 @@ def epoch_(
 
         grad_loss = grad_loss_fn(displacement)
         hessian_loss = hessian_loss_fn(displacement)
-        gt_loss = gt_loss_fn(displacement, u_gt, mask_gt)
+        # gt_loss = gt_loss_fn(displacement, u_gt, mask_gt)
 
         loss = (
             loss_weights[0] * img_loss
             + loss_weights[1] * grad_loss
             + loss_weights[2] * hessian_loss
-            + loss_weights[3] * gt_loss
+            # + loss_weights[3] * gt_loss
         )
 
         if training:
@@ -134,7 +134,7 @@ def epoch_(
         log["loss_mse"].append(img_loss.item())
         log["loss_grad"].append(grad_loss.item())
         log["loss_hess"].append(hessian_loss.item())
-        log["loss_gt"].append(gt_loss.item())
+        # log["loss_gt"].append(gt_loss.item())
         log["max_dis"].append(np.max(np.abs(displacement.detach().cpu().numpy())))
         log["avg_dis"].append(np.mean(displacement.detach().cpu().numpy()))
 
