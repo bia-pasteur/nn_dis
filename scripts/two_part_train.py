@@ -200,6 +200,9 @@ def main(train_config: TrainConfig):
         mask=train_config.mask,
         path_gt=Path(train_config.path_gt_rigid),
     )
+    print("Training dataset size:", len(train_dataset))
+    print("Training dataset:", train_dataset)
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=train_config.batch_size,
