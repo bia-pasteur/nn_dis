@@ -185,7 +185,7 @@ def main(train_config: TrainConfig):
     gt_loss_fn = network.losses.GT_comp()
 
     loss_weights = [
-        1.0,
+        0.0,
         train_config.alpha_param,
         train_config.beta_param,
         train_config.gt_param,
