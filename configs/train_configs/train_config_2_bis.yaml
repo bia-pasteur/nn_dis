@@ -2,8 +2,8 @@ train_config:
     output_dir: '/Users/josephinelahmani/helix_mount/nn_dis/results/train_2_test'
     epochs: 500
     workers: 4
-    batch_size: 10
-    lr: 1e-5
+    batch_size: 1
+    lr: 1e-2
     alpha_param: 0
     beta_param: 0.1
     gt_param: 0.001
