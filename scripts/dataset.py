@@ -302,8 +302,6 @@ class TractionDataset(Dataset):
         ref = reshape_img(ref_numpy, self.max_depth).astype(np.float32)
         moving = reshape_img(moving_numpy, self.max_depth).astype(np.float32)
 
-        mask_gt = ref > 0.01
-
         mask = (
             compute_mask(np.stack([ref, moving], axis=0))
             if self.mask
@@ -409,6 +407,8 @@ class TractionDataset(Dataset):
         transformed_img = torch.from_numpy(transformed_img).float()
         transformed_flow = torch.from_numpy(transformed_flow).float()
 
+        mask_gt = transformed_img[0] > 0.001
+
         if self.intensity_transforms is not None:
             intensity_subject = tio.Subject(
                 stack=tio.ScalarImage(tensor=transformed_img)
@@ -423,5 +423,5 @@ class TractionDataset(Dataset):
             "moving": transformed_img[1:2],  # (1, Z, H, W)
             "mask": mask_2d,  # (1, 1, H, W)
             "u_gt": transformed_flow,  # (3, Z, H, W)
-            "mask_gt": torch.from_numpy(mask_gt).bool(),
+            "mask_gt": mask_gt.unsqueeze(0).bool(),  # torch.from_numpy(mask_gt).bool(),
         }
