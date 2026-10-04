@@ -331,7 +331,7 @@ class TractionDataset(Dataset):
             flow=tio.ScalarImage(tensor=flow),
         )
 
-        if self.transform is not None:
+        if self.spatial_transforms is not None:
             spatial_subject = self.spatial_transforms(spatial_subject)
 
         transformed_img = spatial_subject.stack.data.cpu().numpy().copy()
