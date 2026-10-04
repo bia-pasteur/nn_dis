@@ -157,7 +157,6 @@ def main(train_config: TrainConfig):
     print(f"Using device: {device}")
 
     # Create model
-
     if train_config.model_type == "iso":
         model = network.models.NetworkPairwise(
             ndim=3,
