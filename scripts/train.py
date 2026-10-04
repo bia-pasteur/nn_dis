@@ -20,7 +20,11 @@ from tqdm import tqdm
 
 import network
 from config import TrainConfig
-from scripts.dataset import TractionDataset, get_transforms
+from scripts.dataset import (
+    TractionDataset,
+    get_intensity_transforms,
+    get_spatial_transforms,
+)
 
 
 def update_log(log_dict: dict, update: dict) -> None:
@@ -198,13 +202,15 @@ def main(train_config: TrainConfig):
     if train_config.combine:
         micro_train_dataset = TractionDataset(
             Path(train_config.train_data),
-            transform=get_transforms(),
+            spatial_transforms=get_spatial_transforms(),
+            intensity_transforms=get_intensity_transforms(),
             channel=train_config.channel,
             mask=train_config.mask,
         )
         synthetic_train_dataset = TractionDataset(
             Path("/pasteur/helix/projects/bia/jlahmani/data/synthetic/train"),
-            transform=get_transforms(),
+            spatial_transforms=get_spatial_transforms(),
+            intensity_transforms=get_intensity_transforms(),
             channel=None,
             mask=False,
         )
@@ -241,7 +247,8 @@ def main(train_config: TrainConfig):
     else:
         train_dataset = TractionDataset(
             Path(train_config.train_data),
-            transform=get_transforms(),
+            spatial_transform=get_spatial_transforms(),
+            intensity_transform=get_intensity_transforms(),
             channel=train_config.channel,
             mask=train_config.mask,
             path_gt=Path(train_config.path_gt),

@@ -45,7 +45,7 @@ class SpatialTransformer(nn.Module):
         grid = grid.permute(0, 2, 3, 4, 1)  # To have a (N, D, H, W, C) shape
 
         return F.grid_sample(
-            moving, grid, mode=self.mode, padding_mode="reflection", align_corners=True
+            moving, grid, mode=self.mode, padding_mode="zeros", align_corners=True
         )
 
 
