@@ -258,169 +258,170 @@ class TractionDataset(Dataset):
     def __len__(self):
         return len(self.files)
 
+    def __getitem__(self, index: int):
+        img_path = self.files[index]
+        ext = os.path.splitext(img_path)[1].lower()
 
-def __getitem__(self, index: int):
-    img_path = self.files[index]
-    ext = os.path.splitext(img_path)[1].lower()
+        u_gt = None
 
-    u_gt = None
+        if ext == ".npy":
+            img_raw = np.load(img_path)
 
-    if ext == ".npy":
-        img_raw = np.load(img_path)
+            if self.path_gt is not None:
+                name_img = img_path.name
+                ugt_name = name_img.replace("_img.npy", "_ugt.npy")
+                path_ugt_file = self.path_gt / ugt_name
 
-        if self.path_gt is not None:
-            name_img = img_path.name
-            ugt_name = name_img.replace("_img.npy", "_ugt.npy")
-            path_ugt_file = self.path_gt / ugt_name
+                ugt_raw = np.load(path_ugt_file)
 
-            ugt_raw = np.load(path_ugt_file)
+                u_gt = np.stack(
+                    [
+                        reshape_img(ugt_raw[0], self.max_depth),
+                        reshape_img(ugt_raw[1], self.max_depth),
+                        reshape_img(ugt_raw[2], self.max_depth),
+                    ]
+                ).astype(np.float32)
 
-            u_gt = np.stack(
-                [
-                    reshape_img(ugt_raw[0], self.max_depth),
-                    reshape_img(ugt_raw[1], self.max_depth),
-                    reshape_img(ugt_raw[2], self.max_depth),
-                ]
-            ).astype(np.float32)
+        elif ext in [".tiff", ".tif"]:
+            img_raw = tifffile.imread(img_path)
 
-    elif ext in [".tiff", ".tif"]:
-        img_raw = tifffile.imread(img_path)
+        else:
+            raise ValueError(f"Unsupported file type: {ext}")
 
-    else:
-        raise ValueError(f"Unsupported file type: {ext}")
+        data = img_raw[:, self.channel] if self.channel is not None else img_raw
 
-    data = img_raw[:, self.channel] if self.channel is not None else img_raw
+        img = np.clip(
+            data / (data.max() + 1e-8),
+            0,
+            1,
+        ).astype(np.float32)
 
-    img = np.clip(
-        data / (data.max() + 1e-8),
-        0,
-        1,
-    ).astype(np.float32)
+        ref_numpy = img[0]
+        moving_numpy = img[1]
 
-    ref_numpy = img[0]
-    moving_numpy = img[1]
+        ref = reshape_img(ref_numpy, self.max_depth).astype(np.float32)
+        moving = reshape_img(moving_numpy, self.max_depth).astype(np.float32)
 
-    ref = reshape_img(ref_numpy, self.max_depth).astype(np.float32)
-    moving = reshape_img(moving_numpy, self.max_depth).astype(np.float32)
+        mask_gt = ref > 0.01
 
-    mask_gt = ref > 0.01
-
-    mask = (
-        compute_mask(np.stack([ref, moving], axis=0))
-        if self.mask
-        else np.ones(ref.shape[1:], dtype=np.float32)
-    )
-
-    mask_2d = torch.from_numpy(mask).float().unsqueeze(0).unsqueeze(0)
-
-    ref = torch.from_numpy(ref).float()
-    moving = torch.from_numpy(moving).float()
-
-    if u_gt is None:
-        raise ValueError(
-            f"No displacement field found for {img_path}. "
-            "This dataset augmentation expects a ground-truth flow."
+        mask = (
+            compute_mask(np.stack([ref, moving], axis=0))
+            if self.mask
+            else np.ones(ref.shape[1:], dtype=np.float32)
         )
 
-    flow = torch.from_numpy(u_gt).float()
+        mask_2d = torch.from_numpy(mask).float().unsqueeze(0).unsqueeze(0)
 
-    # Shape: (2, Z, H, W)
-    scalar_img = torch.stack([ref, moving], dim=0)
+        ref = torch.from_numpy(ref).float()
+        moving = torch.from_numpy(moving).float()
 
-    spatial_subject = tio.Subject(
-        stack=tio.ScalarImage(tensor=scalar_img),
-        flow=tio.ScalarImage(tensor=flow),
-    )
-
-    if self.transform is not None:
-        spatial_subject = self.spatial_transform(spatial_subject)
-
-    transformed_img = spatial_subject.stack.data.cpu().numpy().copy()
-    transformed_flow = spatial_subject.flow.data.cpu().numpy().copy()
-
-    total_linear = np.eye(3, dtype=np.float32)
-
-    for applied_transform in spatial_subject.history:
-        transform_name = applied_transform.__class__.__name__
-
-        # RandomFlip is stored as Flip in TorchIO history
-        if transform_name == "Flip":
-            axes = applied_transform.axes
-
-            flip_linear = np.eye(3, dtype=np.float32)
-
-            # x / LR
-            if 0 in axes or "LR" in axes:
-                flip_linear[0, 0] = -1
-
-            # y / AP
-            if 1 in axes or "AP" in axes:
-                flip_linear[1, 1] = -1
-
-            # z / IS
-            if 2 in axes or "IS" in axes:
-                flip_linear[2, 2] = -1
-
-            total_linear = flip_linear @ total_linear
-
-        elif transform_name == "Affine":
-            sitk_transform = applied_transform.get_affine_transform(
-                spatial_subject.stack
+        if u_gt is None:
+            raise ValueError(
+                f"No displacement field found for {img_path}. "
+                "This dataset augmentation expects a ground-truth flow."
             )
 
-            p0 = np.asarray(
-                sitk_transform.TransformPoint((0.0, 0.0, 0.0)),
-                dtype=np.float32,
+        flow = torch.from_numpy(u_gt).float()
+
+        # Shape: (2, Z, H, W)
+        scalar_img = torch.stack([ref, moving], dim=0)
+
+        spatial_subject = tio.Subject(
+            stack=tio.ScalarImage(tensor=scalar_img),
+            flow=tio.ScalarImage(tensor=flow),
+        )
+
+        if self.transform is not None:
+            spatial_subject = self.spatial_transforms(spatial_subject)
+
+        transformed_img = spatial_subject.stack.data.cpu().numpy().copy()
+        transformed_flow = spatial_subject.flow.data.cpu().numpy().copy()
+
+        total_linear = np.eye(3, dtype=np.float32)
+
+        for applied_transform in spatial_subject.history:
+            transform_name = applied_transform.__class__.__name__
+
+            # RandomFlip is stored as Flip in TorchIO history
+            if transform_name == "Flip":
+                axes = applied_transform.axes
+
+                flip_linear = np.eye(3, dtype=np.float32)
+
+                # x / LR
+                if 0 in axes or "LR" in axes:
+                    flip_linear[0, 0] = -1
+
+                # y / AP
+                if 1 in axes or "AP" in axes:
+                    flip_linear[1, 1] = -1
+
+                # z / IS
+                if 2 in axes or "IS" in axes:
+                    flip_linear[2, 2] = -1
+
+                total_linear = flip_linear @ total_linear
+
+            elif transform_name == "Affine":
+                sitk_transform = applied_transform.get_affine_transform(
+                    spatial_subject.stack
+                )
+
+                p0 = np.asarray(
+                    sitk_transform.TransformPoint((0.0, 0.0, 0.0)),
+                    dtype=np.float32,
+                )
+                px = np.asarray(
+                    sitk_transform.TransformPoint((1.0, 0.0, 0.0)),
+                    dtype=np.float32,
+                )
+                py = np.asarray(
+                    sitk_transform.TransformPoint((0.0, 1.0, 0.0)),
+                    dtype=np.float32,
+                )
+                pz = np.asarray(
+                    sitk_transform.TransformPoint((0.0, 0.0, 1.0)),
+                    dtype=np.float32,
+                )
+
+                output_to_input_linear_lps = np.stack(
+                    [
+                        px - p0,
+                        py - p0,
+                        pz - p0,
+                    ],
+                    axis=1,
+                )
+                input_to_output_linear_lps = np.linalg.inv(output_to_input_linear_lps)
+
+                lps_to_ras = np.diag([-1, -1, 1]).astype(np.float32)
+
+                affine_linear_ras = lps_to_ras @ input_to_output_linear_lps @ lps_to_ras
+
+                total_linear = affine_linear_ras @ total_linear
+
+        transformed_flow = np.einsum(
+            "ij,jzhw->izhw",
+            total_linear,
+            transformed_flow,
+        )
+
+        transformed_img = torch.from_numpy(transformed_img).float()
+        transformed_flow = torch.from_numpy(transformed_flow).float()
+
+        if self.intensity_transforms is not None:
+            intensity_subject = tio.Subject(
+                stack=tio.ScalarImage(tensor=transformed_img)
             )
-            px = np.asarray(
-                sitk_transform.TransformPoint((1.0, 0.0, 0.0)),
-                dtype=np.float32,
-            )
-            py = np.asarray(
-                sitk_transform.TransformPoint((0.0, 1.0, 0.0)),
-                dtype=np.float32,
-            )
-            pz = np.asarray(
-                sitk_transform.TransformPoint((0.0, 0.0, 1.0)),
-                dtype=np.float32,
-            )
 
-            output_to_input_linear_lps = np.stack(
-                [
-                    px - p0,
-                    py - p0,
-                    pz - p0,
-                ],
-                axis=1,
-            )
-            input_to_output_linear_lps = np.linalg.inv(output_to_input_linear_lps)
+            intensity_subject = self.intensity_transforms(intensity_subject)
 
-            lps_to_ras = np.diag([-1, -1, 1]).astype(np.float32)
+            transformed_img = intensity_subject.stack.data.float()
 
-            affine_linear_ras = lps_to_ras @ input_to_output_linear_lps @ lps_to_ras
-
-            total_linear = affine_linear_ras @ total_linear
-
-    transformed_flow = np.einsum(
-        "ij,jzhw->izhw",
-        total_linear,
-        transformed_flow,
-    )
-
-    transformed_img = torch.from_numpy(transformed_img).float()
-    transformed_flow = torch.from_numpy(transformed_flow).float()
-
-    if self.intensity_transforms is not None:
-        intensity_subject = tio.Subject(stack=tio.ScalarImage(tensor=transformed_img))
-
-        intensity_subject = self.intensity_transforms(intensity_subject)
-
-        transformed_img = intensity_subject.stack.data.float()
-
-    return {
-        "ref": transformed_img[0:1],  # (1, Z, H, W)
-        "moving": transformed_img[1:2],  # (1, Z, H, W)
-        "mask": mask_2d,  # (1, 1, H, W)
-        "u_gt": transformed_flow,  # (3, Z, H, W)
-        "mask_gt": torch.from_numpy(mask_gt).bool(),
-    }
+        return {
+            "ref": transformed_img[0:1],  # (1, Z, H, W)
+            "moving": transformed_img[1:2],  # (1, Z, H, W)
+            "mask": mask_2d,  # (1, 1, H, W)
+            "u_gt": transformed_flow,  # (3, Z, H, W)
+            "mask_gt": torch.from_numpy(mask_gt).bool(),
+        }
