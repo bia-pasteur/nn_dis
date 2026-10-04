@@ -423,5 +423,5 @@ class TractionDataset(Dataset):
             "moving": transformed_img[1:2],  # (1, Z, H, W)
             "mask": mask_2d,  # (1, 1, H, W)
             "u_gt": transformed_flow,  # (3, Z, H, W)
-            "mask_gt": mask_gt.unsqueeze(0).bool(),  # torch.from_numpy(mask_gt).bool(),
+            "mask_gt": mask_gt.bool(),  # torch.from_numpy(mask_gt).bool(),
         }
