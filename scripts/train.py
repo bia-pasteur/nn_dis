@@ -247,8 +247,8 @@ def main(train_config: TrainConfig):
     else:
         train_dataset = TractionDataset(
             Path(train_config.train_data),
-            spatial_transform=get_spatial_transforms(),
-            intensity_transform=get_intensity_transforms(),
+            spatial_transforms=get_spatial_transforms(),
+            intensity_transforms=get_intensity_transforms(),
             channel=train_config.channel,
             mask=train_config.mask,
             path_gt=Path(train_config.path_gt),
