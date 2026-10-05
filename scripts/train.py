@@ -120,7 +120,7 @@ def epoch_(
 
         grad_loss = grad_loss_fn(displacement)
         hessian_loss = hessian_loss_fn(displacement)
-        gt_loss = gt_loss_fn(displacement, u_gt, mask_gt)
+        gt_loss = gt_loss_fn(computed_dis=displacement, gt_dis=u_gt, mask=mask_gt)
 
         loss = (
             loss_weights[0] * img_loss
@@ -191,7 +191,7 @@ def main(train_config: TrainConfig):
     gt_loss_fn = network.losses.GT_comp()
 
     loss_weights = [
-        1.0,
+        train_config.warp_param,
         train_config.alpha_param,
         train_config.beta_param,
         train_config.gt_param,

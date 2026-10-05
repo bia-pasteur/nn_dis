@@ -316,6 +316,10 @@ class NetworkPairwiseAnisotropic(nn.Module):
         return_warped_moving: bool = False,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
 
+        assert ref.ndim == 5 and moving.ndim == 5, (
+            f"Wrong shapes ! Got {ref.shape=}, {moving.shape=}"
+        )
+
         x = torch.cat([ref, moving], dim=1)
 
         skips = []

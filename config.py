@@ -57,6 +57,7 @@ class TrainConfig:
     workers: int
     batch_size: int
     lr: float
+    warp_param: float
     alpha_param: float
     beta_param: float
     gt_param: float

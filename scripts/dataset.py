@@ -422,7 +422,7 @@ class TractionDataset(Dataset):
         transformed_flow = torch.from_numpy(transformed_flow).float()
 
         # This mask is aligned with transformed_img, unlike mask_2d above
-        mask_gt = transformed_img[0] > 0.001
+        mask_gt = transformed_img[0] > 0.0005
 
         if self.intensity_transforms is not None:
             intensity_subject = tio.Subject(

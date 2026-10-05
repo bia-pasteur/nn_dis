@@ -249,28 +249,12 @@ def register(
         torch.from_numpy(img[1]).unsqueeze(0).unsqueeze(0).to(device)
     )  # (1, 1, Z, H, W)
 
-    warped_moving = moving
-    total_displacement = None
-
-    with torch.no_grad():
-        for _ in range(nb_warps):
-            displacement, warped_moving = model(
-                ref, warped_moving, return_warped_moving=True
-            )
-
-            if total_displacement is None:
-                total_displacement = displacement
-            else:
-                total_displacement = compose_flows(
-                    model.transformer,
-                    total_displacement,
-                    displacement,
-                )
+    displacement, warped_moving = model(ref, moving, return_warped_moving=True)
 
     return (
         img,
         spacing,
-        total_displacement.detach().numpy(),
+        displacement.detach().numpy(),
         warped_moving.detach().numpy()[0, 0],
     )
 

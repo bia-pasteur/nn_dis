@@ -71,12 +71,14 @@ class GT_comp(nn.Module):
         )
 
         assert mask.ndim == 4, f"mask must be of shape (B, Z, H, W). Got {mask.shape}."
+
         nb_mask = torch.sum(mask)
         assert nb_mask != 0, "Got an all zero mask"
 
-        return torch.sum(((computed_dis - gt_dis) ** 2) * mask[:, None]) / (
-            torch.sum(((gt_dis) ** 2) * mask[:, None])  # * nb_mask
-        )
+        num = torch.sum(((computed_dis - gt_dis) ** 2) * mask[:, None])
+        denom = torch.sum(((gt_dis) ** 2) * mask[:, None])
+
+        return num / denom
 
 
 class SpatialGradient(_SpatialPenaltyBase):
