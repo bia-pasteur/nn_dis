@@ -196,7 +196,8 @@ def main(train_config: TrainConfig):
     # Rigid data pre-training
     train_dataset = TractionDataset(
         Path(train_config.train_data_rigid),
-        transform=None,  # get_transforms(),
+        spatial_transforms=None,  # get_spatial_transforms(),
+        intensity_transforms=None,  # get_intensity_transforms(),
         channel=train_config.channel,
         mask=train_config.mask,
         path_gt=Path(train_config.path_gt_rigid),
@@ -301,7 +302,8 @@ def main(train_config: TrainConfig):
     # New training dataset
     finetune_train_dataset = TractionDataset(
         Path(train_config.train_data_rigid_gaussian),
-        transform=None,  # get_transforms(),
+        spatial_transforms=None,  # get_spatial_transforms(),
+        intensity_transforms=None,  # get_intensity_transforms(),
         channel=train_config.channel,
         mask=train_config.mask,
         path_gt=Path(train_config.path_gt_rigid_gaussian),
