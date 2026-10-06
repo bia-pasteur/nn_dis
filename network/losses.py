@@ -61,13 +61,14 @@ class GT_comp(nn.Module):
 
     def forward(
         self,
-        computed_dis: torch.Tensor,
-        gt_dis: torch.Tensor,
+        pred: torch.Tensor,
+        target: torch.Tensor,
+        spacing: torch.Tensor,
         mask: torch.Tensor,
     ) -> torch.Tensor:
 
-        assert computed_dis.ndim == 5, (
-            f"computed_dis must be of shape (B, 3, Z, H, W). Got {computed_dis.shape}."
+        assert pred.ndim == 5, (
+            f"pred must be of shape (B, 3, Z, H, W). Got {pred.shape}."
         )
 
         assert mask.ndim == 4, f"mask must be of shape (B, Z, H, W). Got {mask.shape}."
@@ -75,10 +76,15 @@ class GT_comp(nn.Module):
         nb_mask = torch.sum(mask)
         assert nb_mask != 0, "Got an all zero mask"
 
-        num = torch.sum(((computed_dis - gt_dis) ** 2) * mask[:, None])
-        denom = torch.sum(((gt_dis) ** 2) * mask[:, None])
+        mask = mask.to(device=pred.device, dtype=pred.dtype)
 
-        return num  # / denom
+        error_z = (pred[:, 0] - target[:, 0]) * spacing[:, 0].view(-1, 1, 1, 1)
+        error_y = (pred[:, 1] - target[:, 1]) * spacing[:, 1].view(-1, 1, 1, 1)
+        error_x = (pred[:, 2] - target[:, 2]) * spacing[:, 2].view(-1, 1, 1, 1)
+
+        squared_error = error_z.square() + error_y.square() + error_x.square()
+
+        return (squared_error * mask).sum() / (3 * mask.sum() + 1e-8)
 
 
 class SpatialGradient(_SpatialPenaltyBase):

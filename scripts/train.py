@@ -106,6 +106,7 @@ def epoch_(
         mask = batch["mask"].to(device)
         u_gt = batch["u_gt"].to(device)
         mask_gt = batch["mask_gt"].to(device)
+        spacing = batch["spacing"].to(device)
 
         # Get the displacement and the warped ref image from the model
         displacement, warped_moving = model(ref, moving, return_warped_moving=True)
@@ -121,32 +122,9 @@ def epoch_(
         grad_loss = grad_loss_fn(displacement)
         hessian_loss = hessian_loss_fn(displacement)
 
-        def masked_physical_mse(
-            pred: torch.Tensor,
-            target: torch.Tensor,
-            mask: torch.Tensor,
-            spacing: tuple[float, float, float] = (4.0, 1.0, 1.0),
-            eps: float = 1e-8,
-        ) -> torch.Tensor:
-
-            if mask.ndim == 4:
-                mask = mask.unsqueeze(1)  # (B, 1, D, H, W)
-
-            mask = mask.to(device=pred.device, dtype=pred.dtype)
-
-            z_spacing, y_spacing, x_spacing = spacing
-
-            error_z = (pred[:, 0] - target[:, 0]) * z_spacing
-            error_y = (pred[:, 1] - target[:, 1]) * y_spacing
-            error_x = (pred[:, 2] - target[:, 2]) * x_spacing
-
-            squared_error = error_z.square() + error_y.square() + error_x.square()
-
-            return (squared_error * mask).sum() / (3 * mask.sum() + eps)
-
-        gt_loss = masked_physical_mse(
-            displacement, u_gt, mask_gt
-        )  # gt_loss_fn(computed_dis=displacement, gt_dis=u_gt, mask=mask_gt)
+        gt_loss = gt_loss_fn(
+            pred=displacement, target=u_gt, mask=mask_gt, spacing=spacing
+        )
 
         loss = (
             loss_weights[0] * img_loss
@@ -277,6 +255,7 @@ def main(train_config: TrainConfig):
             intensity_transforms=None,  # get_intensity_transforms(),
             channel=train_config.channel,
             mask=train_config.mask,
+            default_spacing=(4.0, 1.0, 1.0),
             path_gt=Path(train_config.path_gt),
         )
         train_loader = DataLoader(
