@@ -185,11 +185,12 @@ def main(train_config: TrainConfig):
     gt_loss_fn = network.losses.GT_comp()
 
     loss_weights = [
-        0.0,
+        train_config.warp_param,
         train_config.alpha_param,
         train_config.beta_param,
         train_config.gt_param,
     ]
+
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
 
     # Rigid data pre-training
