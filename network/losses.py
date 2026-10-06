@@ -78,7 +78,7 @@ class GT_comp(nn.Module):
         num = torch.sum(((computed_dis - gt_dis) ** 2) * mask[:, None])
         denom = torch.sum(((gt_dis) ** 2) * mask[:, None])
 
-        return num / denom
+        return num  # / denom
 
 
 class SpatialGradient(_SpatialPenaltyBase):

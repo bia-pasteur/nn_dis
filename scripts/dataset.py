@@ -274,10 +274,6 @@ class TractionDataset(Dataset):
 
                 ugt_raw = np.load(path_ugt_file)
 
-                # IMPORTANT:
-                # This assumes ugt_raw is already ordered as (dz, dy, dx).
-                # If your original data is stored as (dx, dy, dz), use:
-                # u_gt = u_gt_xyz[[2, 1, 0]]
                 u_gt = np.stack(
                     [
                         reshape_img(ugt_raw[0], self.max_depth),
@@ -297,6 +293,7 @@ class TractionDataset(Dataset):
                 f"No displacement field found for {img_path}. "
                 "This dataset requires a ground-truth flow."
             )
+
         data = img_raw[:, self.channel] if self.channel is not None else img_raw
 
         img = np.clip(

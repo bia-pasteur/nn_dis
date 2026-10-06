@@ -68,7 +68,8 @@ class ConvBlock(nn.Module):
                 padding=padding,
                 padding_mode="reflect",
             ),
-            nn.BatchNorm3d(out_channels),
+            # nn.BatchNorm3d(out_channels),
+            nn.GroupNorm(num_groups=8, num_channels=out_channels),
             nn.LeakyReLU(0.2, inplace=True),
         )
 

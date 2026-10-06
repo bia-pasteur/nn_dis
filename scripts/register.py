@@ -117,7 +117,11 @@ def get_img_spacing(
     original_shape = img.shape  # (T, D, H, W)
     _, orig_h, orig_w = original_shape[1:]
 
-    img = np.clip(img / img.max(), 0, 1)
+    img = np.clip(
+        img / (img.max() + 1e-8),
+        0,
+        1,
+    )  # .astype(np.float32)
 
     # Reshape frames
     img_0_reshaped = reshape_img(img[0], target_d, target_h, target_w, multiple)
