@@ -2,7 +2,7 @@ train_config:
     output_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/results/train_15_ter'
     epochs: 500
     workers: 4
-    batch_size: 10
+    batch_size: 7
     lr: 5e-4
     warp_param: 0.0
     alpha_param: 0.0
@@ -10,7 +10,7 @@ train_config:
     gt_param: 1.0
     gpu: 0
     save_every: 100
-    features: [16, 32, 32]
+    features: [16, 32, 32, 64, 64]
     flow_multiplier: 10
     model_type: 'aniso'
     train_data: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian/train' 
