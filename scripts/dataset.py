@@ -25,12 +25,12 @@ def get_spatial_transforms():
             tio.RandomFlip(axes=("LR",), flip_probability=0.3),
             tio.RandomFlip(axes=("AP",), flip_probability=0.3),
             tio.RandomFlip(axes=("IS",), flip_probability=0.3),
-            tio.RandomAffine(
-                scales=(0.9, 1.1),
-                degrees=(-180, 180, 0, 0, 0, 0),
-                translation=7,
-                p=0.5,
-            ),
+            # tio.RandomAffine(
+            #     scales=(0.9, 1.1),
+            #     degrees=(-180, 180, 0, 0, 0, 0),
+            #     translation=7,
+            #     p=0.5,
+            # ),
         ],
     )
     return spatial_transforms
@@ -76,240 +76,6 @@ def compute_mask(img: np.ndarray, max_size: int = 20, radius: int = 9) -> np.nda
     return mask_2d
 
 
-# class TractionDataset(Dataset):
-#     """_summary_
-
-#     Args:
-#         Dataset (_type_): _description_
-#     """
-
-#     def __init__(
-#         self,
-#         folder: Path,
-#         spatial_transforms: callable = None,
-#         intensity_transforms: callable = None,
-#         channel: str | None = None,
-#         mask: bool | None = False,
-#         path_gt: str | None = None,
-#     ):
-#         self.files = sorted(
-#             [
-#                 *folder.glob("*.tiff"),
-#                 *folder.glob("*.tif"),
-#                 *folder.glob("*.npy"),
-#             ]
-#         )
-#         self.folder = folder
-#         self.channel = channel
-#         self.mask = mask
-#         self.spatial_transforms = spatial_transforms
-#         self.intensity_transforms = intensity_transforms
-#         self.path_gt = path_gt
-
-#         depths = []
-#         for f in self.files:
-#             if f.suffix.lower() in [".tiff", ".tif"]:
-#                 img = tifffile.imread(f)
-#             elif f.suffix.lower() == ".npy":
-#                 img = np.load(f)
-#             else:
-#                 continue  # skip unknown file types
-
-#             if img.ndim == 4:
-#                 d = img.shape[1]
-#             elif img.ndim >= 3:
-#                 d = img.shape[2]
-#             else:
-#                 d = 1  # fallback for 2D images
-
-#             depths.append(d)
-
-#         self.max_depth = max(depths) if depths else 0
-
-#     def __len__(self):
-#         return len(self.files)
-
-#     def __getitem__(self, index: int):
-#         img_path = self.files[index]
-#         ext = os.path.splitext(img_path)[1].lower()
-
-#         u_gt = None
-
-#         if ext == ".npy":
-#             img_raw = np.load(img_path)
-
-#             if self.path_gt is not None:
-#                 name_img = img_path.name
-#                 ugt_name = name_img.replace("_img.npy", "_ugt.npy")
-#                 path_ugt_file = self.path_gt / ugt_name
-
-#                 ugt_raw = np.load(path_ugt_file)
-
-#                 u_gt = np.stack(
-#                     [
-#                         reshape_img(ugt_raw[0], self.max_depth),
-#                         reshape_img(ugt_raw[1], self.max_depth),
-#                         reshape_img(ugt_raw[2], self.max_depth),
-#                     ]
-#                 ).astype(np.float32)
-
-#         elif ext in [".tiff", ".tif"]:
-#             img_raw = tifffile.imread(img_path)
-
-#         else:
-#             raise ValueError(f"Unsupported file type: {ext}")
-
-#         if u_gt is None:
-#             raise ValueError(
-#                 f"No displacement field found for {img_path}. "
-#                 "This dataset requires a ground-truth flow."
-#             )
-
-#         data = img_raw[:, self.channel] if self.channel is not None else img_raw
-
-#         img = np.clip(
-#             data / (data.max() + 1e-8),
-#             0,
-#             1,
-#         ).astype(np.float32)
-
-#         ref_numpy = img[0]
-#         moving_numpy = img[1]
-
-#         ref = reshape_img(ref_numpy, self.max_depth).astype(np.float32)
-#         moving = reshape_img(moving_numpy, self.max_depth).astype(np.float32)
-
-#         mask = (
-#             compute_mask(np.stack([ref, moving], axis=0))
-#             if self.mask
-#             else np.ones(ref.shape[1:], dtype=np.float32)
-#         )
-
-#         mask_2d = torch.from_numpy(mask).float().unsqueeze(0).unsqueeze(0)
-
-#         ref = torch.from_numpy(ref).float()
-#         moving = torch.from_numpy(moving).float()
-#         flow = torch.from_numpy(u_gt).float()
-
-#         # Images: (2, Z, H, W)
-#         # Flow:   (3, Z, H, W), assumed (dz, dy, dx)
-#         scalar_img = torch.stack([ref, moving], dim=0)
-
-#         spatial_subject = tio.Subject(
-#             stack=tio.ScalarImage(tensor=scalar_img),
-#             flow=tio.ScalarImage(tensor=flow),
-#         )
-
-#         if self.spatial_transforms is not None:
-#             spatial_subject = self.spatial_transforms(spatial_subject)
-
-#         transformed_img = spatial_subject.stack.data.cpu().numpy().copy()
-#         transformed_flow = spatial_subject.flow.data.cpu().numpy().copy()
-
-#         total_linear_xyz = np.eye(3, dtype=np.float32)
-
-#         for applied_transform in spatial_subject.history:
-#             transform_name = applied_transform.__class__.__name__
-
-#             if transform_name == "Flip":
-#                 axes = applied_transform.axes
-
-#                 # Matrix acting on vectors in (dx, dy, dz) order
-#                 flip_linear_xyz = np.eye(3, dtype=np.float32)
-
-#                 # LR corresponds to physical x
-#                 if 0 in axes or "LR" in axes:
-#                     flip_linear_xyz[0, 0] = -1
-
-#                 # AP corresponds to physical y
-#                 if 1 in axes or "AP" in axes:
-#                     flip_linear_xyz[1, 1] = -1
-
-#                 # IS corresponds to physical z
-#                 if 2 in axes or "IS" in axes:
-#                     flip_linear_xyz[2, 2] = -1
-
-#                 total_linear_xyz = flip_linear_xyz @ total_linear_xyz
-
-#             elif transform_name == "Affine":
-#                 sitk_transform = applied_transform.get_affine_transform(
-#                     spatial_subject.stack
-#                 )
-
-#                 # Recover the affine linear part from the SITK transform
-#                 p0 = np.asarray(
-#                     sitk_transform.TransformPoint((0.0, 0.0, 0.0)),
-#                     dtype=np.float32,
-#                 )
-#                 px = np.asarray(
-#                     sitk_transform.TransformPoint((1.0, 0.0, 0.0)),
-#                     dtype=np.float32,
-#                 )
-#                 py = np.asarray(
-#                     sitk_transform.TransformPoint((0.0, 1.0, 0.0)),
-#                     dtype=np.float32,
-#                 )
-#                 pz = np.asarray(
-#                     sitk_transform.TransformPoint((0.0, 0.0, 1.0)),
-#                     dtype=np.float32,
-#                 )
-
-#                 # Transform used during resampling: output -> input
-#                 output_to_input_linear_lps = np.stack(
-#                     [
-#                         px - p0,
-#                         py - p0,
-#                         pz - p0,
-#                     ],
-#                     axis=1,
-#                 )
-
-#                 # Physical geometric transform: input -> output
-#                 input_to_output_linear_lps = np.linalg.inv(output_to_input_linear_lps)
-
-#                 # SimpleITK/TorchIO uses LPS; convert to RAS-like XYZ convention
-#                 lps_to_ras = np.diag([-1, -1, 1]).astype(np.float32)
-
-#                 affine_linear_xyz = lps_to_ras @ input_to_output_linear_lps @ lps_to_ras
-
-#                 total_linear_xyz = affine_linear_xyz @ total_linear_xyz
-
-#         flow_xyz = transformed_flow[[2, 1, 0]]
-
-#         flow_xyz = np.einsum(
-#             "ij,jzhw->izhw",
-#             total_linear_xyz,
-#             flow_xyz,
-#         )
-
-#         # Back to model / SpatialTransformer convention: (dz, dy, dx)
-#         transformed_flow = flow_xyz[[2, 1, 0]]
-
-#         transformed_img = torch.from_numpy(transformed_img).float()
-#         transformed_flow = torch.from_numpy(transformed_flow).float()
-
-#         # This mask is aligned with transformed_img, unlike mask_2d above
-#         mask_gt = transformed_img[0] > 0.0005
-
-#         if self.intensity_transforms is not None:
-#             intensity_subject = tio.Subject(
-#                 stack=tio.ScalarImage(tensor=transformed_img)
-#             )
-
-#             intensity_subject = self.intensity_transforms(intensity_subject)
-
-#             transformed_img = intensity_subject.stack.data.float()
-
-#         return {
-#             "ref": transformed_img[0:1],  # (1, Z, H, W)
-#             "moving": transformed_img[1:2],  # (1, Z, H, W)
-#             "mask": mask_2d,  # (1, 1, H, W), non-transformé
-#             "u_gt": transformed_flow,  # (3, Z, H, W), (dz, dy, dx)
-#             "mask_gt": mask_gt.bool(),  # (Z, H, W)
-#             "spacing": spacing,
-#         }
-
-
 class TractionDataset(Dataset):
     """_summary_
 
@@ -325,7 +91,7 @@ class TractionDataset(Dataset):
         channel: str | None = None,
         mask: bool | None = False,
         path_gt: str | None = None,
-        default_spacing: tuple[float, float, float] | None = None,
+        default_spacing: tuple[float, float, float] | None = (4.0, 1.0, 1.0),
     ):
         self.files = sorted(
             [
@@ -347,7 +113,7 @@ class TractionDataset(Dataset):
     def __len__(self):
         return len(self.files)
 
-    def _get_spatial_transform_linear_matrix(subject: tio.Subject) -> np.ndarray:
+    def _get_spatial_transform_linear_matrix(self, subject: tio.Subject) -> np.ndarray:
         """
         Recover the cumulative linear transformation applied to displacement
         vectors from TorchIO's transform history.
@@ -424,6 +190,13 @@ class TractionDataset(Dataset):
         # was requested. This makes the non-augmented case unambiguous.
         if self.spatial_transforms is None:
             return image, flow
+        image_tio = image.permute(0, 3, 2, 1).contiguous()
+        flow_tio = flow.permute(0, 3, 2, 1).contiguous()
+
+        subject = tio.Subject(
+            stack=tio.ScalarImage(tensor=image_tio),
+            flow=tio.ScalarImage(tensor=flow_tio),
+        )
 
         subject = tio.Subject(
             stack=tio.ScalarImage(tensor=image),
@@ -431,8 +204,11 @@ class TractionDataset(Dataset):
         )
         subject = self.spatial_transforms(subject)
 
-        transformed_image = subject.stack.data.float()
-        transformed_flow = subject.flow.data.float()
+        transformed_image = subject.stack.data.permute(0, 3, 2, 1).contiguous()
+        transformed_flow = subject.flow.data.permute(0, 3, 2, 1).contiguous()
+
+        # transformed_image = subject.stack.data.float()
+        # transformed_flow = subject.flow.data.float()
 
         total_linear_xyz = self._get_spatial_transform_linear_matrix(subject)
 
