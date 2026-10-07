@@ -12,10 +12,10 @@ train_config:
     features: [16, 32, 32, 64, 64]
     flow_multiplier: 10
     model_type: 'aniso'
-    train_data: '/pasteur/helix/projects/bia/jlahmani/data/fractals/train' 
-    val_data: '/pasteur/helix/projects/bia/jlahmani/data/fractals/val'
+    train_data: '/Users/josephinelahmani/helix_mount/data/micro/train' 
+    val_data: '/Users/josephinelahmani/helix_mount/data/micro/val'
     reduction: "mean"
     channel: null
     mask: False
-    combine: False
+    combine: True
     path_gt: '/pasteur/helix/projects/bia/jlahmani/data/fractals/perlin' 

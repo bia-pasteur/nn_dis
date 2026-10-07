@@ -212,7 +212,9 @@ def main(train_config: TrainConfig):
             mask=train_config.mask,
         )
         synthetic_train_dataset = TractionDataset(
-            Path("/pasteur/helix/projects/bia/jlahmani/data/synthetic/train"),
+            Path(
+                "/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian/train"
+            ),  # Path("/pasteur/helix/projects/bia/jlahmani/data/synthetic/train"),
             spatial_transforms=get_spatial_transforms(),
             intensity_transforms=get_intensity_transforms(),
             channel=None,
@@ -234,7 +236,9 @@ def main(train_config: TrainConfig):
             mask=train_config.mask,
         )
         synthetic_val_dataset = TractionDataset(
-            Path("/pasteur/helix/projects/bia/jlahmani/data/synthetic/val"),
+            Path(
+                "/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian/val"
+            ),
             channel=None,
             mask=False,
         )
