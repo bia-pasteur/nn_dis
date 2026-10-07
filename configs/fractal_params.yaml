@@ -1,7 +1,7 @@
 fractal_params:
-  save_dir: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian/all_data'
-  seeds: 100
-  nb_functions: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  save_dir: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian_perlin/all_data'
+  seeds: 400
+  nb_functions: [8, 9, 10, 11, 12, 13, 14, 15]
   nb_iterations: 500000
   min_singular_value: 0.1
   max_singular_value: 0.75

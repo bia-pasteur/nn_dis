@@ -49,6 +49,89 @@ class SpatialTransformer(nn.Module):
         )
 
 
+class ForwardSpatialTransformer(nn.Module):
+    """
+    Warping direct (push / splatting) : chaque voxel de l'image source est
+    projeté vers sa position déplacée dans l'image de sortie, avec une
+    répartition trilinéaire (splatting) et normalisation par les poids
+    accumulés.
+    """
+
+    def __init__(self, eps: float = 1e-8):
+        super().__init__()
+        self.eps = eps
+
+    def forward(
+        self,
+        moving: torch.Tensor,
+        displacement: torch.Tensor,
+    ) -> torch.Tensor:
+        N, C, D, H, W = moving.shape
+        device = moving.device
+        dtype = displacement.dtype
+
+        axes = [torch.arange(0, s, dtype=dtype, device=device) for s in (D, H, W)]
+        meshgrid = torch.stack(torch.meshgrid(*axes, indexing="ij"), dim=0)
+        # (3, D, H, W) -> position de chaque voxel source
+
+        new_locs = meshgrid.unsqueeze(0) + displacement  # (N, 3, D, H, W)
+
+        z, y, x = new_locs[:, 0], new_locs[:, 1], new_locs[:, 2]
+
+        z0, y0, x0 = torch.floor(z), torch.floor(y), torch.floor(x)
+        z1, y1, x1 = z0 + 1, y0 + 1, x0 + 1
+
+        wz1, wy1, wx1 = z - z0, y - y0, x - x0
+        wz0, wy0, wx0 = 1 - wz1, 1 - wy1, 1 - wx1
+
+        corners = [
+            (z0, y0, x0, wz0 * wy0 * wx0),
+            (z0, y0, x1, wz0 * wy0 * wx1),
+            (z0, y1, x0, wz0 * wy1 * wx0),
+            (z0, y1, x1, wz0 * wy1 * wx1),
+            (z1, y0, x0, wz1 * wy0 * wx0),
+            (z1, y0, x1, wz1 * wy0 * wx1),
+            (z1, y1, x0, wz1 * wy1 * wx0),
+            (z1, y1, x1, wz1 * wy1 * wx1),
+        ]
+
+        output = torch.zeros_like(moving)
+        weight_sum = torch.zeros(N, 1, D, H, W, device=device, dtype=dtype)
+
+        moving_flat = moving.reshape(N, C, -1)
+        out_flat = output.reshape(N, C, -1)
+        w_flat = weight_sum.reshape(N, 1, -1)
+
+        for zc, yc, xc, w in corners:
+            zc_l, yc_l, xc_l = zc.long(), yc.long(), xc.long()
+
+            valid = (
+                (zc_l >= 0)
+                & (zc_l < D)
+                & (yc_l >= 0)
+                & (yc_l < H)
+                & (xc_l >= 0)
+                & (xc_l < W)
+            )
+
+            zc_c = zc_l.clamp(0, D - 1)
+            yc_c = yc_l.clamp(0, H - 1)
+            xc_c = xc_l.clamp(0, W - 1)
+
+            flat_idx = ((zc_c * H + yc_c) * W + xc_c).reshape(N, -1)
+            w_valid = torch.where(valid, w, torch.zeros_like(w)).reshape(N, -1)
+
+            vals = moving_flat * w_valid.unsqueeze(1)
+
+            idx_c = flat_idx.unsqueeze(1).expand(-1, C, -1)
+            out_flat.scatter_add_(2, idx_c, vals)
+            w_flat.scatter_add_(2, flat_idx.unsqueeze(1), w_valid.unsqueeze(1))
+
+        output = output / (weight_sum + self.eps)
+
+        return output
+
+
 class ConvBlock(nn.Module):
     def __init__(
         self,
@@ -216,7 +299,7 @@ class NetworkPairwise(nn.Module):
         nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-3)
         nn.init.zeros_(self.flow_head.bias)
 
-        self.transformer = SpatialTransformer()
+        self.transformer = ForwardSpatialTransformer()
 
     def forward(
         self,
@@ -308,13 +391,14 @@ class NetworkPairwiseAnisotropic(nn.Module):
         nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-3)
         nn.init.zeros_(self.flow_head.bias)
 
-        self.transformer = SpatialTransformer()
+        self.transformer = ForwardSpatialTransformer()
 
     def forward(
         self,
         ref: torch.Tensor,
         moving: torch.Tensor,
         return_warped_moving: bool = False,
+        return_warped_ref: bool = False,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
 
         assert ref.ndim == 5 and moving.ndim == 5, (
@@ -338,5 +422,8 @@ class NetworkPairwiseAnisotropic(nn.Module):
 
         if return_warped_moving:
             return field, self.transformer(moving, field)
+
+        if return_warped_ref:
+            return field, self.transformer(ref, field)
 
         return field

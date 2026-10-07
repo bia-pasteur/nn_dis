@@ -70,6 +70,86 @@ def add_random_affine_ifs(
         ifs.set_param(A, T, 1 / n_functions)
 
 
+def generate_pyvista_perlin_noise(
+    shape: list[int],
+    amplitude_min: float,
+    amplitude_max: float,
+    freq_min: float,
+    freq_max: float,
+    scale_z: float,
+    rng: np.random.Generator,
+):
+    """
+    Génère un champ scalaire de bruit de Perlin 3D (une seule composante),
+    sur la même logique que generate_pyvista_perlin_displacement.
+    """
+    assert amplitude_min < amplitude_max and freq_min < freq_max, (
+        "Min values must be inferior to max values, check config file !"
+    )
+    assert len(shape) == 3
+    nz, ny, nx = shape
+
+    freq_x, freq_y, freq_z = (
+        rng.uniform(freq_min, freq_max),
+        rng.uniform(freq_min, freq_max),
+        rng.uniform(freq_min, freq_max) * scale_z,
+    )
+
+    phase = tuple(rng.uniform(0, 1000, size=3))
+    amplitude = rng.uniform(amplitude_min, amplitude_max)
+
+    noise_func = pv.perlin_noise(
+        amplitude=amplitude, freq=(freq_x, freq_y, freq_z), phase=phase
+    )
+
+    sampled = pv.sample_function(
+        noise_func,
+        bounds=(0, nx - 1, 0, ny - 1, 0, nz - 1),
+        dim=(nx, ny, nz),
+    )
+
+    noise = sampled.point_data["scalars"].reshape((nz, ny, nx))
+
+    return noise
+
+
+def add_perlin_background(
+    image: np.ndarray,
+    rng: np.random.Generator,
+    amplitude_min: float = 0.01,
+    amplitude_max: float = 0.1,
+    freq_min: float = 0.5,
+    freq_max: float = 2.0,
+    scale_z: float = 1.0,
+    noise_strength: float = 0.01,
+):
+    """
+    Ajoute une texture de bruit de Perlin dans le fond de `image`
+    (volume (z, y, x) normalisé dans [0, 1]).
+
+    Le bruit est pondéré par (1 - image), donc il s'ajoute surtout
+    là où l'intensité de la fractale est faible (le fond).
+    """
+    shape = image.shape  # (nz, ny, nx)
+
+    noise = generate_pyvista_perlin_noise(
+        shape=list(shape),
+        amplitude_min=amplitude_min,
+        amplitude_max=amplitude_max,
+        freq_min=freq_min,
+        freq_max=freq_max,
+        scale_z=scale_z,
+        rng=rng,
+    )
+
+    noise = (noise - noise.min()) / (noise.max() - noise.min() + 1e-12)
+
+    textured = image + noise_strength * noise * (image == 0)
+    textured = textured / textured.max()
+
+    return textured
+
+
 def generate_fractal_image(
     rng: np.random.Generator,
     n_functions: int,
@@ -111,7 +191,7 @@ def generate_fractal_image(
         pad_z=pad_z,
     )
 
-    return image
+    return add_perlin_background(image, rng)
 
 
 def rotation_matrix(alpha: float, beta: float, gamma: float) -> np.ndarray:

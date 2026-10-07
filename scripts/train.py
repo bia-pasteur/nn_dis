@@ -109,11 +109,21 @@ def epoch_(
         spacing = batch["spacing"].to(device)
 
         # Get the displacement and the warped ref image from the model
-        displacement, warped_moving = model(ref, moving, return_warped_moving=True)
+        # displacement, warped_moving = model(ref, moving, return_warped_moving=True)
+
+        # img_loss = image_loss_fn(
+        #     ref,
+        #     warped_moving,
+        #     mask,
+        #     reduction=reduction,
+        #     weight_mask=weight_mask,
+        # )
+
+        displacement, warped_ref = model(ref, moving, return_warped_ref=True)
 
         img_loss = image_loss_fn(
-            ref,
-            warped_moving,
+            moving,
+            warped_ref,
             mask,
             reduction=reduction,
             weight_mask=weight_mask,
