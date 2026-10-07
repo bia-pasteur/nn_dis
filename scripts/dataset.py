@@ -198,10 +198,6 @@ class TractionDataset(Dataset):
             flow=tio.ScalarImage(tensor=flow_tio),
         )
 
-        subject = tio.Subject(
-            stack=tio.ScalarImage(tensor=image),
-            flow=tio.ScalarImage(tensor=flow),
-        )
         subject = self.spatial_transforms(subject)
 
         transformed_image = subject.stack.data.permute(0, 3, 2, 1).contiguous()
@@ -235,12 +231,21 @@ class TractionDataset(Dataset):
         if self.intensity_transforms is None:
             return image
 
+        # (C, Z, H, W) -> (C, W, H, Z)
+        image_tio = image.permute(0, 3, 2, 1).contiguous()
+
         subject = tio.Subject(
-            stack=tio.ScalarImage(tensor=image),
+            stack=tio.ScalarImage(tensor=image_tio),
         )
+
         subject = self.intensity_transforms(subject)
 
-        return subject.stack.data.float()
+        # (C, W, H, Z) -> (C, Z, H, W)
+        transformed_image = subject.stack.data.permute(0, 3, 2, 1).contiguous().float()
+
+        assert transformed_image.shape == image.shape
+
+        return transformed_image
 
     def __getitem__(self, index: int):
         img_path = self.files[index]
