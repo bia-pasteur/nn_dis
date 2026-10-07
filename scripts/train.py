@@ -251,8 +251,8 @@ def main(train_config: TrainConfig):
     else:
         train_dataset = TractionDataset(
             Path(train_config.train_data),
-            spatial_transforms=None,  # get_spatial_transforms(),
-            intensity_transforms=None,  # get_intensity_transforms(),
+            spatial_transforms=get_spatial_transforms(),
+            intensity_transforms=get_intensity_transforms(),
             channel=train_config.channel,
             mask=train_config.mask,
             default_spacing=(4.0, 1.0, 1.0),

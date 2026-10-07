@@ -52,7 +52,7 @@ def load_model(
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    model_path = f"{folder_path}/best.pt"  # best.pt"
+    model_path = f"{folder_path}/final.pt"  # best.pt"
 
     if model_type == "aniso":
         model = network.models.NetworkPairwiseAnisotropic(
