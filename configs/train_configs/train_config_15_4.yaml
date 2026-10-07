@@ -4,7 +4,7 @@ train_config:
     workers: 4
     batch_size: 7
     lr: 5e-4
-    warp_param: 100.0
+    warp_param: 10000.0
     alpha_param: 0.0
     beta_param: 0.0
     gt_param: 1.0
