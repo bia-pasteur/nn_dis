@@ -134,6 +134,7 @@ def get_img_spacing(
             x_spacing = 1.0
 
         original_spacing = (z_spacing, y_spacing, x_spacing)
+        img_raw = img_raw.get_image_data("TCZYX")
 
     img = img_raw[:, channel] if channel is not None else img_raw
 
