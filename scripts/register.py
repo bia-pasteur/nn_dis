@@ -146,7 +146,7 @@ def register(
         torch.from_numpy(img[1]).unsqueeze(0).unsqueeze(0).to(device)
     )  # (1, 1, Z, H, W)
 
-    displacement, warped_moving = model(ref, moving, return_warped_ref=True)
+    displacement, warped_moving = model(ref, moving, return_warped_moving=True)
 
     return (
         img,
