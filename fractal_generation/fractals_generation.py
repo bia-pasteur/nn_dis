@@ -113,9 +113,9 @@ class IFSFunction3D:
         ys = scale_axis(ys, size_img_y, pad_y)
         zs = scale_axis(zs, size_img_z, pad_z)
 
-        xs = np.rint(xs).astype(np.uint8)
-        ys = np.rint(ys).astype(np.uint8)
-        zs = np.rint(zs).astype(np.uint8)
+        xs = np.rint(xs).astype(np.uint32)
+        ys = np.rint(ys).astype(np.uint32)
+        zs = np.rint(zs).astype(np.uint32)
 
         xs = np.clip(xs, 0, size_img_x - 1)
         ys = np.clip(ys, 0, size_img_y - 1)
@@ -128,6 +128,21 @@ class IFSFunction3D:
 
         np.add.at(image, (zs, ys, xs), 1)
 
-        image = image / image.max()
+        # --- Compress the huge dynamic range of the point histogram ---
+        image = np.log1p(image)
 
-        return image
+        # --- Percentile-based normalization to [0, 1], robust to outlier peaks ---
+        nonzero = image[image > 0]
+        if nonzero.size == 0:
+            return image.astype(np.float32)
+
+        lo, hi = np.percentile(nonzero, [1.0, 99.0])
+        if hi <= lo + 1e-12:
+            hi = nonzero.max()
+            lo = 0.0
+
+        image = np.clip(image, lo, hi)
+        image = (image - lo) / max(hi - lo, 1e-12)
+        image = np.clip(image, 0.0, 1.0)
+
+        return image.astype(np.float32)

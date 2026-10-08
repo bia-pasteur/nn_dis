@@ -70,84 +70,172 @@ def add_random_affine_ifs(
         ifs.set_param(A, T, 1 / n_functions)
 
 
-def generate_pyvista_perlin_noise(
-    shape: list[int],
-    amplitude_min: float,
-    amplitude_max: float,
-    freq_min: float,
-    freq_max: float,
-    scale_z: float,
-    rng: np.random.Generator,
+def normalize_noise(noise: np.ndarray, p_low: float = 1, p_high: float = 99):
+    """Normalise robustement un bruit dans [0, 1]."""
+    lo, hi = np.percentile(noise, [p_low, p_high])
+
+    if hi <= lo + 1e-12:
+        return np.zeros_like(noise, dtype=np.float32)
+
+    noise = np.clip(noise, lo, hi)
+    return ((noise - lo) / (hi - lo)).astype(np.float32)
+
+
+def sample_pyvista_perlin(
+    shape: tuple[int, int, int],
+    frequency: tuple[float, float, float],
+    phase: tuple[float, float, float],
 ):
     """
-    Génère un champ scalaire de bruit de Perlin 3D (une seule composante),
-    sur la même logique que generate_pyvista_perlin_displacement.
+    Échantillonne un bruit de Perlin PyVista dans un volume (z, y, x).
     """
-    assert amplitude_min < amplitude_max and freq_min < freq_max, (
-        "Min values must be inferior to max values, check config file !"
-    )
-    assert len(shape) == 3
     nz, ny, nx = shape
 
-    freq_x, freq_y, freq_z = (
-        rng.uniform(freq_min, freq_max),
-        rng.uniform(freq_min, freq_max),
-        rng.uniform(freq_min, freq_max) * scale_z,
-    )
-
-    phase = tuple(rng.uniform(0, 1000, size=3))
-    amplitude = rng.uniform(amplitude_min, amplitude_max)
-
     noise_func = pv.perlin_noise(
-        amplitude=amplitude, freq=(freq_x, freq_y, freq_z), phase=phase
+        amplitude=1.0,
+        freq=frequency,
+        phase=phase,
     )
 
     sampled = pv.sample_function(
         noise_func,
-        bounds=(0, nx - 1, 0, ny - 1, 0, nz - 1),
+        bounds=(
+            0,
+            max(nx - 1, 1),
+            0,
+            max(ny - 1, 1),
+            0,
+            max(nz - 1, 1),
+        ),
         dim=(nx, ny, nz),
     )
 
-    noise = sampled.point_data["scalars"].reshape((nz, ny, nx))
+    return sampled.point_data["scalars"].reshape((nz, ny, nx))
 
-    return noise
+
+def generate_pyvista_perlin_fbm(
+    shape: tuple[int, int, int],
+    rng: np.random.Generator,
+    octaves: int = 5,
+    persistence: float = 0.55,
+    lacunarity: float = 2.0,
+    base_cycles: tuple[float, float, float] = (1.5, 1.5, 1.0),
+    z_frequency_scale: float = 1.0,
+):
+    """
+    Génère un bruit fBm : somme de plusieurs bruits de Perlin.
+
+    Parameters
+    ----------
+    shape:
+        Shape du volume sous la forme (z, y, x).
+
+    octaves:
+        Nombre de niveaux de détail. Typiquement 4 à 6.
+
+    persistence:
+        Réduction d'amplitude entre deux octaves.
+        0.4-0.6 fonctionne généralement bien.
+
+    lacunarity:
+        Multiplicateur de fréquence entre deux octaves.
+        2.0 est la valeur standard.
+
+    base_cycles:
+        Nombre approximatif de grandes variations visibles
+        sur les axes (x, y, z), avant les octaves supplémentaires.
+
+    z_frequency_scale:
+        Multiplie la fréquence selon z.
+        Si les voxels sont 4 fois plus espacés en z et que tu veux
+        une texture physiquement isotrope, utiliser plutôt 1/4.
+    """
+    nz, ny, nx = shape
+
+    # Conversion "nombre de cycles dans le volume" -> fréquence PyVista.
+    base_frequency = np.array(
+        [
+            base_cycles[0] / max(nx - 1, 1),
+            base_cycles[1] / max(ny - 1, 1),
+            base_cycles[2] * z_frequency_scale / max(nz - 1, 1),
+        ],
+        dtype=np.float64,
+    )
+
+    total = np.zeros(shape, dtype=np.float32)
+    amplitude = 1.0
+    amplitude_sum = 0.0
+
+    for octave in range(octaves):
+        freq_jitter = rng.uniform(0.85, 1.15, size=3)
+
+        frequency = tuple(base_frequency * (lacunarity**octave) * freq_jitter)
+
+        phase = tuple(rng.uniform(0.0, 1000.0, size=3))
+
+        octave_noise = sample_pyvista_perlin(
+            shape=shape,
+            frequency=frequency,
+            phase=phase,
+        )
+
+        total += amplitude * octave_noise
+        amplitude_sum += amplitude
+
+        amplitude *= persistence
+
+    total /= max(amplitude_sum, 1e-12)
+
+    return normalize_noise(total, p_low=1, p_high=99)
 
 
 def add_perlin_background(
     image: np.ndarray,
     rng: np.random.Generator,
-    amplitude_min: float = 0.01,
-    amplitude_max: float = 0.1,
-    freq_min: float = 0.5,
-    freq_max: float = 2.0,
-    scale_z: float = 1.0,
-    noise_strength: float = 0.01,
+    background_level: float = 0.01,
+    background_contrast: float = 0.10,
+    octaves: int = 5,
+    persistence: float = 0.55,
+    lacunarity: float = 2.0,
+    base_cycles: tuple[float, float, float] = (1.5, 1.5, 1.0),
+    z_frequency_scale: float = 1.0,
+    fade_power: float = 1.0,
 ):
     """
-    Ajoute une texture de bruit de Perlin dans le fond de `image`
-    (volume (z, y, x) normalisé dans [0, 1]).
+    Ajoute un fond texturé fBm à une image normalisée dans [0, 1].
 
-    Le bruit est pondéré par (1 - image), donc il s'ajoute surtout
-    là où l'intensité de la fractale est faible (le fond).
+    background_level:
+        Intensité minimale du fond.
+
+    background_contrast:
+        Amplitude de variation de texture.
+
+    fade_power:
+        Contrôle à quel point la texture pénètre dans les zones
+        de faible intensité de la fractale.
     """
-    shape = image.shape  # (nz, ny, nx)
+    image = np.asarray(image, dtype=np.float32)
+    image = np.clip(image, 0.0, 1.0)
 
-    noise = generate_pyvista_perlin_noise(
-        shape=list(shape),
-        amplitude_min=amplitude_min,
-        amplitude_max=amplitude_max,
-        freq_min=freq_min,
-        freq_max=freq_max,
-        scale_z=scale_z,
+    texture = generate_pyvista_perlin_fbm(
+        shape=image.shape,
         rng=rng,
+        octaves=octaves,
+        persistence=persistence,
+        lacunarity=lacunarity,
+        base_cycles=base_cycles,
+        z_frequency_scale=z_frequency_scale,
     )
 
-    noise = (noise - noise.min()) / (noise.max() - noise.min() + 1e-12)
+    # Fond positif, utile si ton fond doit être visible mais faible.
+    background = background_level + background_contrast * texture
 
-    textured = image + noise_strength * noise * (image == 0)
-    textured = textured / textured.max()
+    # Contrairement à (image == 0), ceci donne une transition progressive.
+    weight = (1.0 - image) ** fade_power
 
-    return textured
+    result = image + weight * background
+
+    return np.clip(result, 0.0, 1.0)
 
 
 def generate_fractal_image(
@@ -191,7 +279,19 @@ def generate_fractal_image(
         pad_z=pad_z,
     )
 
-    return add_perlin_background(image, rng)
+    # return add_perlin_background(
+    #     image=image,
+    #     rng=rng,
+    #     background_level=0.005,
+    #     background_contrast=0.10,
+    #     octaves=5,
+    #     persistence=0.70,
+    #     lacunarity=2.0,
+    #     base_cycles=(6.0, 6.0, 3.0),
+    #     z_frequency_scale=1.0,
+    # )
+
+    return image
 
 
 def rotation_matrix(alpha: float, beta: float, gamma: float) -> np.ndarray:

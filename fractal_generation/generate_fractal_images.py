@@ -244,6 +244,12 @@ def main(fractal_params: FractalParams):
                 translation_max=fractal_params.translation_max,
             )
 
+            import napari
+
+            viewer = napari.Viewer()
+            viewer.add_image(img, scale=(4.0, 1.0, 1.0), interpolation3d="nearest")
+            napari.run()
+
             output_dir = os.path.join(fractal_params.save_dir)
 
             os.makedirs(output_dir, exist_ok=True)
