@@ -204,7 +204,7 @@ def compute_lip(
         float: Theoretical Lipschitz constant of the gradient of f(h)
     """
     Q = compute_Q(img, alpha, beta, nabla_for_L, spacing=spacing)
-    return sp.linalg.norm(Q, ord=2)
+    return sp.linalg.norm(Q, ord=1)
 
 
 def warp(image: np.ndarray, flow: np.ndarray, spacing: tuple[int] = None) -> np.ndarray:
