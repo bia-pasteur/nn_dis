@@ -291,6 +291,13 @@ def main(train_config: TrainConfig):
     logs_train, logs_validation = {}, {}
     best_loss = float("inf")
     for epoch in tqdm(range(train_config.epochs), desc="Epochs"):
+        if epoch > 100:
+            loss_weights = [
+                train_config.warp_param,
+                train_config.alpha_param,
+                train_config.beta_param,
+                0.0,
+            ]
         # Train for one epoch
         epoch_log_train = epoch_(
             model=model,
