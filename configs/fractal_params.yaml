@@ -26,5 +26,5 @@ fractal_params:
   beta_rigid_max: 10
   gamma_rigid_min: -10
   gamma_rigid_max: 10
-  translation_min: -15.0
-  translation_max: 15.0
+  translation_min: -10.0
+  translation_max: 10.0
