@@ -1,5 +1,5 @@
 fractal_params:
-  save_dir: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian_new/all_data'
+  save_dir: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian_bigger/all_data'
   seeds: 100
   nb_functions: [10, 11, 12, 13, 14, 15, 16, 17, 18]
   nb_iterations: 500000
@@ -26,5 +26,5 @@ fractal_params:
   beta_rigid_max: 10
   gamma_rigid_min: -10
   gamma_rigid_max: 10
-  translation_min: -10.0
-  translation_max: 10.0
+  translation_min: -15.0
+  translation_max: 15.0
