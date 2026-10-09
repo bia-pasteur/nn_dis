@@ -128,10 +128,8 @@ class IFSFunction3D:
 
         np.add.at(image, (zs, ys, xs), 1)
 
-        # --- Compress the huge dynamic range of the point histogram ---
         image = np.log1p(image)
 
-        # --- Percentile-based normalization to [0, 1], robust to outlier peaks ---
         nonzero = image[image > 0]
         if nonzero.size == 0:
             return image.astype(np.float32)

@@ -50,9 +50,9 @@ def load_model(
     Returns:
         torch.nn.Module: Loaded model in eval mode
     """
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"  # "cuda" if torch.cuda.is_available() else "cpu"
 
-    model_path = f"{folder_path}/checkpoint_epoch200.pt"  # best.pt"
+    model_path = f"{folder_path}/best.pt"  # best.pt"
 
     if model_type == "aniso":
         model = network.models.NetworkPairwiseAnisotropic(
@@ -122,7 +122,7 @@ def register(
             - torch.Tensor: Final displacement field tensor
             - np.ndarray: Warped moving image
     """
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"  # "cuda" if torch.cuda.is_available() else "cpu"
 
     model = load_model(
         folder_path=folder_path, model_type=model_type, features=features

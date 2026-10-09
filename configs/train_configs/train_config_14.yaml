@@ -8,6 +8,9 @@ train_config:
     alpha_param: 1000.0
     beta_param: 1000.0
     gt_param: 1.0
+    gt_decay: True        
+    gt_decay_start_epoch: 100 
+    gt_decay_end_epoch: 200  
     gpu: 0
     save_every: 100
     features: [16, 32, 32, 64, 64]

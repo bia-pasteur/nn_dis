@@ -69,6 +69,9 @@ class TrainConfig:
     train_data: str
     val_data: str
     reduction: str
+    gt_decay: bool | None = False
+    gt_decay_start_epoch: int | None = None
+    gt_decay_end_epoch: int | None = None
     channel: int | None = None
     mask: bool = False
     combine: bool = False

@@ -1,3 +1,3 @@
 save_params: 
   folder: '/Users/josephinelahmani/Desktop/data/3d_synth_of' #'/Users/josephinelahmani/helix_mount/data/micro/testOF' 
-  save_path: '/Users/josephinelahmani/Desktop/nn_dis/data' #'/Users/josephinelahmani/helix_mount/data/micro/computed_flows'
+  save_path: '/Users/josephinelahmani/Desktop/nn_dis/data/computed_flows' #'/Users/josephinelahmani/helix_mount/data/micro/computed_flows'
