@@ -3,8 +3,6 @@
 # pylint: disable=line-too-long
 # pylint: disable=trailing-whitespace
 
-import time
-
 import numpy as np
 import scipy.ndimage as ndi
 
@@ -218,6 +216,7 @@ def compute_of_strain_traction(
     lambda_: float,
     of_functions: list[str],
     results_folder: str,
+    path_of_results: str,
 ) -> dict:
     """
     Get Ground-Truth and compute optical-flow-based displacement, strain, deformation, stress, and traction fields on images.
@@ -271,39 +270,15 @@ def compute_of_strain_traction(
             disp_gt, mu, lambda_
         )
 
-        for i, method in enumerate(of_functions):
-            method_name = method.__name__.replace("_of", "")
+        for method in enumerate(of_functions):
+            h = np.load(path_of_results / f"flow_{method}_{filename}")
 
             results_im = _update_results_method(
                 results_im=results_im,
-                method_name=method_name,
+                method_name=method,
                 h=h,
                 mask=mask,
                 time_method=time_method,
-                mu=mu,
-                lambda_=lambda_,
-                norms_normals_gt=norms_normals_gt,
-            )
-
-        if wofv_displacements is not None:
-            results_im = _update_results_method(
-                results_im=results_im,
-                method_name="wofv",
-                h=wofv_displacements[nb],
-                mask=mask,
-                time_method=0.0,
-                mu=mu,
-                lambda_=lambda_,
-                norms_normals_gt=norms_normals_gt,
-            )
-
-        if piv_displacements is not None:
-            results_im = _update_results_method(
-                results_im=results_im,
-                method_name="piv",
-                h=piv_displacements[nb],
-                mask=mask,
-                time_method=0.0,
                 mu=mu,
                 lambda_=lambda_,
                 norms_normals_gt=norms_normals_gt,
@@ -329,102 +304,5 @@ def compute_of_strain_traction(
             method_name = method.__name__.replace("_of", "")
 
             _compute_mean_stds_values(results, method_name)
-
-            if wofv_displacements is not None:
-                _compute_mean_stds_values(results, "wofv")
-
-            if piv_displacements is not None:
-                _compute_mean_stds_values(results, "piv")
-
-    return results
-
-
-def compute_of_strain_traction_micro_img(
-    image: np.ndarray,
-    mask: np.ndarray,
-    mu: float,
-    lambda_: float,
-    of_functions: list[callable],
-    of_params: list[dict],
-    global_flow: bool,
-    wofv_displacement: np.ndarray | None = None,
-) -> dict:
-    """
-    Compute optical-flow-based displacement, strain, deformation, stress, and traction fields on a microsocpy image.
-
-    This function evaluates several optical flow (OF) methods on an image.
-    It then computes the corresponding strain, deformation gradient, stress, and traction fields
-
-    Args:
-        image (np.ndarray): 2D grayscale image (float or uint) used as input to optical flow methods. The image must contain one single cell.
-        mask (np.ndarray): Binary mask of the cell in the image
-        mu (float): Lamé parameter
-        lambda_ (float): Lamé parameter
-        of_functions (List[Callable]): List of optical flow functions to evaluate.
-        of_params (List[Dict]): List of parameter dictionaries corresponding to each function in `of_functions`.
-        global_flow (bool): Used in optical flow computation to compute the flow between every image and the next or between the first image and every other.
-
-    Returns
-        dict:
-            Dictionary containing, for each image index:
-
-            - `"flows"`, `"strain"`, `"deformation"`, `"stress"`, `"traction"`:
-            dictionaries with OF-based results per method.
-            - `"mask"` : binary mask used for valid regions.
-    """
-
-    results = {}
-
-    eroded_mask = ndi.binary_erosion(mask)
-    inner_boundary_gt = eroded_mask & (~ndi.binary_erosion(eroded_mask))
-    normals = compute_normals_from_mask_2d(eroded_mask)
-    normals[:, ~inner_boundary_gt] = 0
-
-    results["flows"] = {}
-    results["strain"] = {}
-    results["deformation"] = {}
-    results["stress"] = {}
-    results["traction"] = {}
-    results["runtime"] = {}
-
-    for i, method in enumerate(of_functions):
-        method_name = method.__name__.replace("_of", "")
-        start_time = time.time()
-        h = method(image, of_params[i], global_flow)
-        time_method = time.time() - start_time
-        h_mask = h * mask
-
-        strain_of = strain_mask(h, [1, 1], mask)
-
-        def_of = deformation(strain_of)
-
-        stress_of = stress_mask(strain_of, mu, lambda_)
-
-        traction_of = compute_traction_2d(stress_of[:, :, 0], -normals)
-
-        results["flows"][method_name] = h_mask
-        results["strain"][method_name] = strain_of
-        results["deformation"][method_name] = def_of
-        results["stress"][method_name] = stress_of
-        results["traction"][method_name] = traction_of
-        results["runtime"][method_name] = time_method
-
-    if wofv_displacement is not None:
-        h_wofv = wofv_displacement[0]
-        h_wofv_mask = h_wofv * mask
-
-        strain_wofv = strain_mask(h_wofv_mask, [1, 1], mask)
-
-        def_wofv = deformation(strain_wofv)
-
-        stress_wofv = stress_mask(strain_wofv, mu, lambda_)
-
-        traction_wofv = compute_traction_2d(stress_wofv[:, :, 0], -normals)
-
-        results["flows"]["wofv"] = h_wofv_mask
-        results["strain"]["wofv"] = strain_wofv
-        results["deformation"]["wofv"] = def_wofv
-        results["stress"]["wofv"] = stress_wofv
-        results["traction"]["wofv"] = traction_wofv
 
     return results
