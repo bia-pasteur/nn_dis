@@ -8,7 +8,7 @@ train_config:
     alpha_param: 1000.0
     beta_param: 1000.0
     gt_param: 1.0
-    gt_decay: Flase      
+    gt_decay: False      
     gt_decay_start_epoch: null
     gt_decay_end_epoch: null
     gpu: 0
