@@ -32,7 +32,7 @@ def get_img_dis_model(
         default_spacing=default_spacing,
     )
     dis_model = np.transpose(dis_model, (1, 0, 2, 3, 4))
-    mask = img[0] > 0.0001
+    mask = img[0] > 0.1
     dis_model_masked = np.stack(
         [dis_model[i] * mask for i in range(dis_model.shape[0])]
     )
@@ -42,6 +42,29 @@ def get_img_dis_model(
 
 def rmse(pred, target):
     return np.sqrt(np.mean((pred - target) ** 2))
+
+
+def _compute_mean_std_null_disp(results: dict) -> dict:
+    """
+    Compute the average RMSE (and its std) of the null displacement field
+    (i.e. predicting zero displacement everywhere) and add it to the results dictionary.
+
+    Args:
+        results (dict): Results dictionary.
+
+    Returns:
+        dict: Updated results dictionary.
+    """
+    null_vals = [
+        res["rmse_flows"]["null"]
+        for nb, res in results.items()
+        if isinstance(nb, int) and res and "null" in res["rmse_flows"]
+    ]
+
+    results["mean_rmse_disp"]["null"] = np.mean(null_vals)
+    results["std_rmse_disp"]["null"] = np.std(null_vals)
+
+    return results
 
 
 def _initialize_results_image_gt(
@@ -81,7 +104,7 @@ def _initialize_results_image_gt(
     results_im["deformation"] = {"gt": def_gt}
     results_im["stress"] = {"gt": stress_gt}
     results_im["traction"] = {"gt": traction_gt}
-    results_im["rmse_flows"] = {}
+    results_im["rmse_flows"] = {"null": norm_disp}
     results_im["rmse_strain"] = {}
     results_im["rmse_def"] = {}
     results_im["rmse_stress"] = {}
@@ -148,7 +171,7 @@ def _update_results_method(
     traction_of = compute_traction_3d(stress_of[:, :, 0], -normals)
     rmse_traction = rmse(traction_of, results_im["traction"]["gt"])  # / norm_traction
 
-    results_im["flows"][method_name] = h_mask
+    results_im["flows"][method_name] = h
     results_im["strain"][method_name] = strain_of
     results_im["deformation"][method_name] = def_of
     results_im["stress"][method_name] = stress_of
@@ -247,7 +270,7 @@ def compute_of_strain_traction(
     nb = 0
     of_runtimes = _load_of_runtimes(path_of_results)
 
-    for path_img in folder_img_ugt.iterdir():
+    for path_img in sorted(folder_img_ugt.iterdir()):
         filename = path_img.name
         if not filename.endswith(("img.npy", "img.tiff", "img.tif")):
             continue
@@ -258,7 +281,7 @@ def compute_of_strain_traction(
             E = float(match.group(1))
             nu = float(match.group(2))
 
-        lambda_ = E * nu / ((1.0 + nu) * (1.0 - (nu**2)))
+        lambda_ = E * nu / ((1.0 + nu) * (1.0 - (2 * nu)))
         mu = E / (2.0 * (1.0 + nu))
 
         start_time = time.time()
@@ -273,16 +296,10 @@ def compute_of_strain_traction(
         ugt_raw = np.load(path_ugt)
 
         ugt_pixels = np.stack(
-            [ugt_raw[i] / spacing[i] for i in range(ugt_raw.shape[0])]
-        )
+            [ugt_raw[i] for i in range(3)]
+        )  # / spacing[i] for i in range(3)])
 
-        disp_gt = np.stack(
-            [
-                reshape_img(ugt_pixels[0, 0], 32),
-                reshape_img(ugt_pixels[1, 0], 32),
-                reshape_img(ugt_pixels[2, 0], 32),
-            ]
-        )
+        disp_gt = np.stack([reshape_img(ugt_pixels[i, 0], 32) for i in range(3)])
 
         results_im, norms_normals_gt = _initialize_results_image_gt(
             disp_gt[:, np.newaxis], mask, mu, lambda_
@@ -335,5 +352,7 @@ def compute_of_strain_traction(
 
     for method in ["model", *of_functions]:
         _compute_mean_stds_values(results, method)
+
+    _compute_mean_std_null_disp(results)
 
     return results
