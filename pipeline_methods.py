@@ -240,32 +240,191 @@ def _load_of_runtimes(path_of_results: Path) -> dict[str, float]:
     return dict(zip(runtimes_df["method"], runtimes_df["average_time_seconds"]))
 
 
+# def compute_of_strain_traction(
+#     folder_img_ugt: str,
+#     of_functions: list[str],
+#     results_folder: str,
+#     path_of_results: str,
+# ) -> dict:
+#     """
+#     Get Ground-Truth and compute optical-flow-based displacement, strain, deformation, stress, and traction fields on images.
+#     Compute average values and their stds for every measured quantity if more than one image is provided.
+
+#     Args:
+#         images (list[np.ndarray]): Images to analyze.
+#         displacements (list[np.ndarray]): Ground-Truth displacements on the images.
+#         mu (float): First Lamé parameter.
+#         lambda_ (float): Second Lamé parameter.
+#         of_functions (list[callable]): Optical flow functions to use during the analysis.
+#         of_params (list[dict]): Parameters for each optical flow function.
+#         wofv_displacements (list[np.ndarray] | None, optional): wOFV displacement computed using the PIVlab sofware. Defaults to None.
+#         piv_displacements (list[np.ndarray] | None, optional): PIV displacement computed using the PIVlab sofware. Defaults to None.
+#         reg_multipliers (list[float] | None, optional): Values to multiply the optical flow parameters.
+#                                                         Used in the noise experiment. Defaults to None.
+
+#     Returns:
+#         dict: Dictionary containing the Ground-Truth and optical flow based displacement, strain, deformation, stress, and traction fields on images
+#         as well as the RMSE value for every quantity.
+#     """
+#     results = {}
+#     nb = 0
+#     of_runtimes = _load_of_runtimes(path_of_results)
+
+#     for path_img in sorted(folder_img_ugt.iterdir()):
+#         filename = path_img.name
+#         if not filename.endswith(("img.npy", "img.tiff", "img.tif")):
+#             continue
+
+#         match = re.search(r"E_([\d.]+)_nu_([\d.]+)", filename)
+
+#         if match:
+#             E = float(match.group(1))
+#             nu = float(match.group(2))
+
+#         lambda_ = E * nu / ((1.0 + nu) * (1.0 - (2 * nu)))
+#         mu = E / (2.0 * (1.0 + nu))
+
+#         start_time = time.time()
+#         img, spacing, mask, h_model, warped_model, h_model_masked = get_img_dis_model(
+#             path_img, results_folder
+#         )
+#         time_model = time.time() - start_time
+
+#         ugt_name = filename.replace("_img.npy", "_ugt.npy")
+#         path_ugt = folder_img_ugt / ugt_name
+
+#         ugt_raw = np.load(path_ugt)
+
+#         ugt_pixels = np.stack([ugt_raw[i] / spacing[i] for i in range(3)])
+
+#         disp_gt = np.stack([reshape_img(ugt_pixels[i, 0], 32) for i in range(3)])
+
+#         results_im, norms_normals_gt = _initialize_results_image_gt(
+#             disp_gt[:, np.newaxis], mask, mu, lambda_
+#         )
+
+#         results_im["image"] = img
+#         results_im["mask"] = mask
+#         results_im["spacing"] = spacing
+#         results_im["filename"] = filename
+#         results_im["E"] = E
+#         results_im["nu"] = nu
+
+#         results_im = _update_results_method(
+#             results_im=results_im,
+#             method_name="model",
+#             h=h_model,
+#             mask=mask,
+#             time_method=time_model,
+#             mu=mu,
+#             lambda_=lambda_,
+#             norms_normals_gt=norms_normals_gt,
+#         )
+
+#         for method in of_functions:
+#             h = np.load(path_of_results / f"flow_{method}_{filename}")
+
+#             if method == "fista":
+#                 h = np.stack([h[i] / spacing[i] for i in range(h.shape[0])])
+
+#             results_im = _update_results_method(
+#                 results_im=results_im,
+#                 method_name=method,
+#                 h=h,
+#                 mask=mask,
+#                 time_method=of_runtimes[method],
+#                 mu=mu,
+#                 lambda_=lambda_,
+#                 norms_normals_gt=norms_normals_gt,
+#             )
+
+#         results[nb] = results_im
+
+#         nb += 1
+
+#     results["mean_rmse_disp"] = {}
+#     results["mean_rmse_strain"] = {}
+#     results["mean_rmse_def"] = {}
+#     results["mean_rmse_stress"] = {}
+#     results["mean_rmse_traction"] = {}
+#     results["mean_runtime"] = {}
+#     results["std_rmse_disp"] = {}
+#     results["std_rmse_strain"] = {}
+#     results["std_rmse_def"] = {}
+#     results["std_rmse_stress"] = {}
+#     results["std_rmse_traction"] = {}
+#     results["std_runtime"] = {}
+
+#     for method in ["model", *of_functions]:
+#         _compute_mean_stds_values(results, method)
+
+#     _compute_mean_std_null_disp(results)
+
+#     return results
+
+
+def _normalize_model_folders(
+    results_folders: list[str | Path] | dict[str, str | Path],
+) -> dict[str, Path]:
+    """
+    Convert the list (or dict) of model folders into a dict {model_name: folder_path}.
+
+    - If a dict is given, the keys are used as model names.
+    - If a list is given, the model name is "model_<folder_name>".
+      Duplicate names are disambiguated with a numeric suffix.
+    """
+    if isinstance(results_folders, dict):
+        return {name: Path(folder) for name, folder in results_folders.items()}
+
+    if isinstance(results_folders, (str, Path)):
+        results_folders = [results_folders]
+
+    models = {}
+    for folder in results_folders:
+        folder = Path(folder)
+        base_name = f"model_{folder.name}"
+        name = base_name
+        k = 1
+        while name in models:
+            name = f"{base_name}_{k}"
+            k += 1
+        models[name] = folder
+    return models
+
+
 def compute_of_strain_traction(
-    folder_img_ugt: str,
+    folder_img_ugt: str | Path,
     of_functions: list[str],
-    results_folder: str,
-    path_of_results: str,
+    results_folders: list[str | Path] | dict[str, str | Path],
+    path_of_results: str | Path,
 ) -> dict:
     """
-    Get Ground-Truth and compute optical-flow-based displacement, strain, deformation, stress, and traction fields on images.
-    Compute average values and their stds for every measured quantity if more than one image is provided.
+    Get Ground-Truth and compute model-based and optical-flow-based displacement, strain,
+    deformation, stress, and traction fields on images.
+    Compute average values and their stds for every measured quantity.
 
     Args:
-        images (list[np.ndarray]): Images to analyze.
-        displacements (list[np.ndarray]): Ground-Truth displacements on the images.
-        mu (float): First Lamé parameter.
-        lambda_ (float): Second Lamé parameter.
-        of_functions (list[callable]): Optical flow functions to use during the analysis.
-        of_params (list[dict]): Parameters for each optical flow function.
-        wofv_displacements (list[np.ndarray] | None, optional): wOFV displacement computed using the PIVlab sofware. Defaults to None.
-        piv_displacements (list[np.ndarray] | None, optional): PIV displacement computed using the PIVlab sofware. Defaults to None.
-        reg_multipliers (list[float] | None, optional): Values to multiply the optical flow parameters.
-                                                        Used in the noise experiment. Defaults to None.
+        folder_img_ugt (str | Path): Folder containing the images (*_img.npy / .tif) and
+                                     the GT displacements (*_ugt.npy).
+        of_functions (list[str]): Names of the optical flow methods whose results are stored
+                                  in `path_of_results` as `flow_<method>_<filename>`.
+        results_folders (list | dict): Folders containing the trained models.
+            - list: model names are derived from folder names ("model_<folder_name>").
+            - dict: {model_name: folder_path}.
+        path_of_results (str | Path): Folder containing the optical flow results and
+                                      "average_optical_flow_times.csv".
 
     Returns:
-        dict: Dictionary containing the Ground-Truth and optical flow based displacement, strain, deformation, stress, and traction fields on images
-        as well as the RMSE value for every quantity.
+        dict: Dictionary containing, for each image index, the GT and estimated fields
+              for every model and OF method, plus the mean/std RMSE of every quantity.
     """
+    folder_img_ugt = Path(folder_img_ugt)
+    path_of_results = Path(path_of_results)
+    model_folders = _normalize_model_folders(results_folders)
+
+    if not model_folders:
+        raise ValueError("`results_folders` must contain at least one model folder.")
+
     results = {}
     nb = 0
     of_runtimes = _load_of_runtimes(path_of_results)
@@ -276,45 +435,57 @@ def compute_of_strain_traction(
             continue
 
         match = re.search(r"E_([\d.]+)_nu_([\d.]+)", filename)
+        if not match:
+            raise ValueError(f"Cannot find E and nu in filename: {filename}")
 
-        if match:
-            E = float(match.group(1))
-            nu = float(match.group(2))
-
+        E = float(match.group(1))
+        nu = float(match.group(2))
         lambda_ = E * nu / ((1.0 + nu) * (1.0 - (2 * nu)))
         mu = E / (2.0 * (1.0 + nu))
 
-        start_time = time.time()
-        img, spacing, mask, h_model, warped_model, h_model_masked = get_img_dis_model(
-            path_img, results_folder
-        )
-        time_model = time.time() - start_time
+        results_im = None
+        norms_normals_gt = None
+        mask_ref = None
 
-        ugt_name = filename.replace("_img.npy", "_ugt.npy")
-        path_ugt = folder_img_ugt / ugt_name
+        for model_name, model_folder in model_folders.items():
+            start_time = time.time()
+            img, spacing, mask, h_model, warped_model, h_model_masked = (
+                get_img_dis_model(path_img, model_folder)
+            )
+            time_model = time.time() - start_time
 
-        ugt_raw = np.load(path_ugt)
+            if results_im is None:
+                mask_ref = mask
 
-        ugt_pixels = np.stack(
-            [ugt_raw[i] for i in range(3)]
-        )  # / spacing[i] for i in range(3)])
+                ugt_name = re.sub(r"_img\.(npy|tiff|tif)$", "_ugt.npy", filename)
+                ugt_raw = np.load(folder_img_ugt / ugt_name)
 
-        disp_gt = np.stack([reshape_img(ugt_pixels[i, 0], 32) for i in range(3)])
+                ugt_pixels = np.stack([ugt_raw[i] / spacing[i] for i in range(3)])
+                disp_gt = np.stack(
+                    [reshape_img(ugt_pixels[i, 0], 32) for i in range(3)]
+                )
 
-        results_im, norms_normals_gt = _initialize_results_image_gt(
-            disp_gt[:, np.newaxis], mask, mu, lambda_
-        )
+                results_im, norms_normals_gt = _initialize_results_image_gt(
+                    disp_gt[:, np.newaxis], mask, mu, lambda_
+                )
 
-        results_im = _update_results_method(
-            results_im=results_im,
-            method_name="model",
-            h=h_model,
-            mask=mask,
-            time_method=time_model,
-            mu=mu,
-            lambda_=lambda_,
-            norms_normals_gt=norms_normals_gt,
-        )
+            results_im["image"] = img
+            results_im["mask"] = mask
+            results_im["spacing"] = spacing
+            results_im["filename"] = filename
+            results_im["E"] = E
+            results_im["nu"] = nu
+
+            results_im = _update_results_method(
+                results_im=results_im,
+                method_name=model_name,
+                h=h_model,
+                mask=mask_ref,
+                time_method=time_model,
+                mu=mu,
+                lambda_=lambda_,
+                norms_normals_gt=norms_normals_gt,
+            )
 
         for method in of_functions:
             h = np.load(path_of_results / f"flow_{method}_{filename}")
@@ -326,7 +497,7 @@ def compute_of_strain_traction(
                 results_im=results_im,
                 method_name=method,
                 h=h,
-                mask=mask,
+                mask=mask_ref,
                 time_method=of_runtimes[method],
                 mu=mu,
                 lambda_=lambda_,
@@ -334,23 +505,28 @@ def compute_of_strain_traction(
             )
 
         results[nb] = results_im
-
         nb += 1
 
-    results["mean_rmse_disp"] = {}
-    results["mean_rmse_strain"] = {}
-    results["mean_rmse_def"] = {}
-    results["mean_rmse_stress"] = {}
-    results["mean_rmse_traction"] = {}
-    results["mean_runtime"] = {}
-    results["std_rmse_disp"] = {}
-    results["std_rmse_strain"] = {}
-    results["std_rmse_def"] = {}
-    results["std_rmse_stress"] = {}
-    results["std_rmse_traction"] = {}
-    results["std_runtime"] = {}
+    for key in [
+        "mean_rmse_disp",
+        "mean_rmse_strain",
+        "mean_rmse_def",
+        "mean_rmse_stress",
+        "mean_rmse_traction",
+        "mean_runtime",
+        "std_rmse_disp",
+        "std_rmse_strain",
+        "std_rmse_def",
+        "std_rmse_stress",
+        "std_rmse_traction",
+        "std_runtime",
+    ]:
+        results[key] = {}
 
-    for method in ["model", *of_functions]:
+    results["model_names"] = list(model_folders.keys())
+    results["model_folders"] = {k: str(v) for k, v in model_folders.items()}
+
+    for method in [*model_folders.keys(), *of_functions]:
         _compute_mean_stds_values(results, method)
 
     _compute_mean_std_null_disp(results)

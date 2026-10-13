@@ -7,7 +7,7 @@ import jsonargparse
 import numpy as np
 
 from config import OpticalFlowParams, SaveParams
-from optical_flow.algorithms import hs_of, ilk, tv_l1
+from optical_flow.algorithms import fista_of, hs_of, ilk, tv_l1
 from scripts.image_preprocessing import get_img_spacing
 
 
@@ -86,7 +86,7 @@ def main(optical_flow: OpticalFlowParams, save_params: SaveParams):
     average_times = {
         "hs": save_flow_of(hs_of, hs_params, "hs", folder_img, save_path),
         "tvl1": save_flow_of(tv_l1, tvl1_params, "tvl1", folder_img, save_path),
-        # "fista": save_flow_of(fista_of, fista_params, "fista", folder_img, save_path),
+        "fista": save_flow_of(fista_of, fista_params, "fista", folder_img, save_path),
         "ilk": save_flow_of(ilk, ilk_params, "ilk", folder_img, save_path),
     }
 
