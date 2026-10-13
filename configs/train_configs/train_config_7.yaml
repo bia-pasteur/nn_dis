@@ -12,7 +12,7 @@ train_config:
     gt_decay_start_epoch: 100 
     gt_decay_end_epoch: 150  
     gpu: 0
-    save_every: 100‡Ò
+    save_every: 100
     features: [16, 32, 32, 64, 64]
     flow_multiplier: 10
     model_type: 'aniso'
