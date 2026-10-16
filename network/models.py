@@ -119,7 +119,15 @@ class ConvBlockAnisotropic(nn.Module):
                 padding_mode="reflect",
             ),
             nn.GroupNorm(num_groups=8, num_channels=out_channels),
-            # nn.BatchNorm3d(out_channels),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(
+                out_channels,
+                out_channels,
+                kernel_size=kernel,
+                padding=padding,
+                padding_mode="reflect",
+            ),
+            nn.GroupNorm(num_groups=8, num_channels=out_channels),
             nn.LeakyReLU(0.2, inplace=True),
         )
 
@@ -131,14 +139,13 @@ class DownsampleConvAnisotropic(nn.Module):
     def __init__(self, in_channels: int, out_channels: int, is_2d: bool = False):
         super().__init__()
         self.conv = ConvBlockAnisotropic(in_channels, out_channels, is_2d=is_2d)
-        self.pool = nn.MaxPool3d(
-            kernel_size=(1, 2, 2) if is_2d else 2,
-            stride=(1, 2, 2) if is_2d else 2,
-        )
+        scale = (1, 2, 2) if is_2d else (2, 2, 2)
+        self.pool = nn.MaxPool3d(kernel_size=scale, stride=scale)
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        x = self.conv(x)
-        return self.pool(x)
+        skip = self.conv(x)
+        pooled = self.pool(skip)
+        return skip, pooled
 
 
 class UpsampleConvAnisotropic(nn.Module):
@@ -150,16 +157,32 @@ class UpsampleConvAnisotropic(nn.Module):
         is_2d: bool = False,
     ):
         super().__init__()
-        scale = (1, 2, 2) if is_2d else 2.0
-        self.upsample = nn.Upsample(
-            scale_factor=scale, mode="trilinear", align_corners=True
-        )
+        # scale = (1, 2, 2) if is_2d else 2.0
+        # self.upsample = nn.Upsample(
+        #     scale_factor=scale, mode="trilinear", align_corners=True
+        # )
+        # self.conv = ConvBlockAnisotropic(
+        #     in_channels + skip_channels, out_channels, is_2d=is_2d
+        # )
+
         self.conv = ConvBlockAnisotropic(
-            in_channels + skip_channels, out_channels, is_2d=is_2d
+            in_channels=in_channels + skip_channels,
+            out_channels=out_channels,
+            is_2d=is_2d,
         )
 
     def forward(self, x: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
-        x = self.upsample(x)
+        # x = self.upsample(x)
+        # x = torch.cat([x, skip], dim=1)
+        # return self.conv(x)
+
+        x = F.interpolate(
+            x,
+            size=skip.shape[2:],
+            mode="trilinear",
+            align_corners=True,
+        )
+
         x = torch.cat([x, skip], dim=1)
         return self.conv(x)
 
@@ -268,42 +291,61 @@ class NetworkPairwiseAnisotropic(nn.Module):
         self.device = device
         self.flow_multiplier = flow_multiplier
 
-        in_channels = ref_channels + moving_channels
-
         self.encoder = nn.ModuleList()
-        self.skip_channels = []
-        in_ch = in_channels
-        for i, feature in enumerate(features):
-            self.skip_channels.append(in_ch)
-            self.encoder.append(
-                DownsampleConvAnisotropic(in_ch, feature, is_2d=(i < n_2d_levels))
-            )
-            in_ch = feature
+        in_ch = ref_channels + moving_channels
+        # self.skip_channels = []
 
-        self.bottleneck = ConvBlockAnisotropic(features[-1], features[-1])
+        for i, out_ch in enumerate(features):
+            # self.skip_channels.append(in_ch)
+            self.encoder.append(
+                DownsampleConvAnisotropic(in_ch, out_ch, is_2d=(i < n_2d_levels))
+            )
+            in_ch = out_ch
+
+        self.bottleneck = ConvBlockAnisotropic(
+            in_channels=in_ch, out_channels=in_ch, is_2d=(i < n_2d_levels)
+        )
 
         self.decoder = nn.ModuleList()
 
-        reversed_features = list(reversed(features))
-        reversed_skips = list(reversed(self.skip_channels))
+        # reversed_features = list(reversed(features))
+        # reversed_skips = list(reversed(self.skip_channels))
 
-        in_ch = features[-1]
+        # in_ch = features[-1]
 
-        for i in range(len(reversed_features)):
-            encoder_level = len(features) - 1 - i
-            out_ch = reversed_features[i]
-            skip_ch = reversed_skips[i]
+        # for i in range(len(reversed_features)):
+        #     encoder_level = len(features) - 1 - i
+        #     out_ch = reversed_features[i]
+        #     skip_ch = reversed_skips[i]
+        #     self.decoder.append(
+        #         UpsampleConvAnisotropic(
+        #             in_channels=in_ch,
+        #             skip_channels=skip_ch,
+        #             out_channels=out_ch,
+        #             is_2d=(encoder_level < n_2d_levels),
+        #         )
+        #     )
+        #     in_ch = out_ch
+
+        for level in reversed(range(len(features))):
+            skip_ch = features[level]
+            out_ch = features[level]
+
             self.decoder.append(
                 UpsampleConvAnisotropic(
                     in_channels=in_ch,
                     skip_channels=skip_ch,
                     out_channels=out_ch,
-                    is_2d=(encoder_level < n_2d_levels),
+                    is_2d=(level < n_2d_levels),
                 )
             )
             in_ch = out_ch
 
-        self.flow_head = nn.Conv3d(in_ch, ndim, kernel_size=1, padding_mode="reflect")
+        self.flow_head = nn.Conv3d(
+            in_channels=in_ch,
+            out_channels=ndim,
+            kernel_size=1,
+        )
 
         nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-3)
         nn.init.zeros_(self.flow_head.bias)
@@ -325,14 +367,13 @@ class NetworkPairwiseAnisotropic(nn.Module):
 
         skips = []
         for enc_block in self.encoder:
+            skip, x = enc_block(x)
             skips.append(x)
-            x = enc_block(x)
 
         x = self.bottleneck(x)
 
-        skips = list(reversed(skips))
-        for i, dec_block in enumerate(self.decoder):
-            x = dec_block(x, skips[i])
+        for dec_block, skip in zip(self.decoder, list(reversed(skips))):
+            x = dec_block(x, skip)
 
         field = self.flow_head(x) * self.flow_multiplier
 

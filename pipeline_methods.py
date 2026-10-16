@@ -460,13 +460,15 @@ def compute_of_strain_traction(
                 ugt_name = re.sub(r"_img\.(npy|tiff|tif)$", "_ugt.npy", filename)
                 ugt_raw = np.load(folder_img_ugt / ugt_name)
 
-                ugt_pixels = np.stack([ugt_raw[i] / spacing[i] for i in range(3)])
+                ugt_pixels = np.stack(
+                    [ugt_raw[i] for i in range(3)]
+                )  # / spacing[i] for i in range(3)])
                 disp_gt = np.stack(
                     [reshape_img(ugt_pixels[i, 0], 32) for i in range(3)]
                 )
 
                 results_im, norms_normals_gt = _initialize_results_image_gt(
-                    disp_gt[:, np.newaxis], mask, mu, lambda_
+                    disp_gt[:, np.newaxis] * mask, mask, mu, lambda_
                 )
 
             results_im["image"] = img
