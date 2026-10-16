@@ -368,7 +368,7 @@ class NetworkPairwiseAnisotropic(nn.Module):
         skips = []
         for enc_block in self.encoder:
             skip, x = enc_block(x)
-            skips.append(x)
+            skips.append(skip)
 
         x = self.bottleneck(x)
 
