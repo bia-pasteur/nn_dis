@@ -240,129 +240,6 @@ def _load_of_runtimes(path_of_results: Path) -> dict[str, float]:
     return dict(zip(runtimes_df["method"], runtimes_df["average_time_seconds"]))
 
 
-# def compute_of_strain_traction(
-#     folder_img_ugt: str,
-#     of_functions: list[str],
-#     results_folder: str,
-#     path_of_results: str,
-# ) -> dict:
-#     """
-#     Get Ground-Truth and compute optical-flow-based displacement, strain, deformation, stress, and traction fields on images.
-#     Compute average values and their stds for every measured quantity if more than one image is provided.
-
-#     Args:
-#         images (list[np.ndarray]): Images to analyze.
-#         displacements (list[np.ndarray]): Ground-Truth displacements on the images.
-#         mu (float): First Lamé parameter.
-#         lambda_ (float): Second Lamé parameter.
-#         of_functions (list[callable]): Optical flow functions to use during the analysis.
-#         of_params (list[dict]): Parameters for each optical flow function.
-#         wofv_displacements (list[np.ndarray] | None, optional): wOFV displacement computed using the PIVlab sofware. Defaults to None.
-#         piv_displacements (list[np.ndarray] | None, optional): PIV displacement computed using the PIVlab sofware. Defaults to None.
-#         reg_multipliers (list[float] | None, optional): Values to multiply the optical flow parameters.
-#                                                         Used in the noise experiment. Defaults to None.
-
-#     Returns:
-#         dict: Dictionary containing the Ground-Truth and optical flow based displacement, strain, deformation, stress, and traction fields on images
-#         as well as the RMSE value for every quantity.
-#     """
-#     results = {}
-#     nb = 0
-#     of_runtimes = _load_of_runtimes(path_of_results)
-
-#     for path_img in sorted(folder_img_ugt.iterdir()):
-#         filename = path_img.name
-#         if not filename.endswith(("img.npy", "img.tiff", "img.tif")):
-#             continue
-
-#         match = re.search(r"E_([\d.]+)_nu_([\d.]+)", filename)
-
-#         if match:
-#             E = float(match.group(1))
-#             nu = float(match.group(2))
-
-#         lambda_ = E * nu / ((1.0 + nu) * (1.0 - (2 * nu)))
-#         mu = E / (2.0 * (1.0 + nu))
-
-#         start_time = time.time()
-#         img, spacing, mask, h_model, warped_model, h_model_masked = get_img_dis_model(
-#             path_img, results_folder
-#         )
-#         time_model = time.time() - start_time
-
-#         ugt_name = filename.replace("_img.npy", "_ugt.npy")
-#         path_ugt = folder_img_ugt / ugt_name
-
-#         ugt_raw = np.load(path_ugt)
-
-#         ugt_pixels = np.stack([ugt_raw[i] / spacing[i] for i in range(3)])
-
-#         disp_gt = np.stack([reshape_img(ugt_pixels[i, 0], 32) for i in range(3)])
-
-#         results_im, norms_normals_gt = _initialize_results_image_gt(
-#             disp_gt[:, np.newaxis], mask, mu, lambda_
-#         )
-
-#         results_im["image"] = img
-#         results_im["mask"] = mask
-#         results_im["spacing"] = spacing
-#         results_im["filename"] = filename
-#         results_im["E"] = E
-#         results_im["nu"] = nu
-
-#         results_im = _update_results_method(
-#             results_im=results_im,
-#             method_name="model",
-#             h=h_model,
-#             mask=mask,
-#             time_method=time_model,
-#             mu=mu,
-#             lambda_=lambda_,
-#             norms_normals_gt=norms_normals_gt,
-#         )
-
-#         for method in of_functions:
-#             h = np.load(path_of_results / f"flow_{method}_{filename}")
-
-#             if method == "fista":
-#                 h = np.stack([h[i] / spacing[i] for i in range(h.shape[0])])
-
-#             results_im = _update_results_method(
-#                 results_im=results_im,
-#                 method_name=method,
-#                 h=h,
-#                 mask=mask,
-#                 time_method=of_runtimes[method],
-#                 mu=mu,
-#                 lambda_=lambda_,
-#                 norms_normals_gt=norms_normals_gt,
-#             )
-
-#         results[nb] = results_im
-
-#         nb += 1
-
-#     results["mean_rmse_disp"] = {}
-#     results["mean_rmse_strain"] = {}
-#     results["mean_rmse_def"] = {}
-#     results["mean_rmse_stress"] = {}
-#     results["mean_rmse_traction"] = {}
-#     results["mean_runtime"] = {}
-#     results["std_rmse_disp"] = {}
-#     results["std_rmse_strain"] = {}
-#     results["std_rmse_def"] = {}
-#     results["std_rmse_stress"] = {}
-#     results["std_rmse_traction"] = {}
-#     results["std_runtime"] = {}
-
-#     for method in ["model", *of_functions]:
-#         _compute_mean_stds_values(results, method)
-
-#     _compute_mean_std_null_disp(results)
-
-#     return results
-
-
 def _normalize_model_folders(
     results_folders: list[str | Path] | dict[str, str | Path],
 ) -> dict[str, Path]:
@@ -463,6 +340,12 @@ def compute_of_strain_traction(
                 ugt_pixels = np.stack(
                     [ugt_raw[i] for i in range(3)]
                 )  # / spacing[i] for i in range(3)])
+
+                sy = 128 / ugt_pixels[1, 0].shape[1]
+                sx = 128 / ugt_pixels[2, 0].shape[2]
+                ugt_pixels[1] *= sy
+                ugt_pixels[2] *= sx
+
                 disp_gt = np.stack(
                     [reshape_img(ugt_pixels[i, 0], 32) for i in range(3)]
                 )
