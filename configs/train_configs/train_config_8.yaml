@@ -1,16 +1,16 @@
 train_config: 
     output_dir: '/pasteur/helix/projects/bia/jlahmani/nn_dis/results/train_8'
-    epochs: 500
+    epochs: 1500
     workers: 4
     batch_size: 10
-    lr: 5e-4
+    lr: 5e-3
     warp_param: 1000.0
     alpha_param: 100.0
     beta_param: 0.0
     gt_param: 1.0
     gt_decay: True        
     gt_decay_start_epoch: 100 
-    gt_decay_end_epoch: 500  
+    gt_decay_end_epoch: 300  
     gpu: 0
     save_every: 100
     features: [16, 32, 32, 64, 64]

@@ -3,7 +3,7 @@ train_config:
     epochs: 1000
     workers: 4
     batch_size: 10
-    lr: 2e-3
+    lr: 6e-3
     warp_param: 1000.0
     alpha_param: 100.0
     beta_param: 0.0
