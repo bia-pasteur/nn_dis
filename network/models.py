@@ -68,8 +68,8 @@ class ConvBlock(nn.Module):
                 padding=padding,
                 padding_mode="reflect",
             ),
-            # nn.BatchNorm3d(out_channels),
-            nn.GroupNorm(num_groups=8, num_channels=out_channels),
+            nn.BatchNorm3d(out_channels),
+            # nn.GroupNorm(num_groups=8, num_channels=out_channels),
             nn.LeakyReLU(0.2, inplace=True),
         )
 
@@ -118,8 +118,10 @@ class ConvBlockAnisotropic(nn.Module):
                 padding=padding,
                 padding_mode="reflect",
             ),
-            nn.GroupNorm(num_groups=8, num_channels=out_channels),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.BatchNorm3d(out_channels),
+            nn.GELU(),
+            # nn.GroupNorm(num_groups=8, num_channels=out_channels),
+            # nn.LeakyReLU(0.2, inplace=True),
             nn.Conv3d(
                 out_channels,
                 out_channels,
@@ -127,8 +129,10 @@ class ConvBlockAnisotropic(nn.Module):
                 padding=padding,
                 padding_mode="reflect",
             ),
-            nn.GroupNorm(num_groups=8, num_channels=out_channels),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.BatchNorm3d(out_channels),
+            nn.GELU(),
+            # nn.GroupNorm(num_groups=8, num_channels=out_channels),
+            # nn.LeakyReLU(0.2, inplace=True),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

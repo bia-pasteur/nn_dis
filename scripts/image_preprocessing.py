@@ -151,6 +151,14 @@ def get_img_spacing(
         1,
     ).astype(np.float32)
 
+    # q_low, q_high = np.quantile(img, [0.01, 0.99])
+
+    # img_norm = np.clip(
+    #     (img - q_low) / (q_high - q_low + 1e-8),
+    #     0,
+    #     1,
+    # ).astype(np.float32)
+
     # Reshape frames
     ref = reshape_img(img_norm[0], target_d, target_h, target_w, multiple)
     moving = reshape_img(img_norm[1], target_d, target_h, target_w, multiple)

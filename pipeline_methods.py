@@ -129,10 +129,10 @@ def _update_results_method(
     method_name: str,
     h: np.ndarray,
     mask: np.ndarray,
-    time_method: float,
     mu: float,
     lambda_: float,
     norms_normals_gt: tuple,
+    time_method: float | None = None,
 ) -> dict:
     """
     Update the results dictionary for one image with values related to one optical flow method.
@@ -176,7 +176,7 @@ def _update_results_method(
     results_im["deformation"][method_name] = def_of
     results_im["stress"][method_name] = stress_of
     results_im["traction"][method_name] = traction_of
-    results_im["runtime"][method_name] = time_method
+    results_im["runtime"][method_name] = time_method if time_method is not None else 0
 
     results_im["rmse_flows"][method_name] = rmse_flow
     results_im["rmse_strain"][method_name] = rmse_strain

@@ -203,9 +203,6 @@ class TractionDataset(Dataset):
         transformed_image = subject.stack.data.permute(0, 3, 2, 1).contiguous()
         transformed_flow = subject.flow.data.permute(0, 3, 2, 1).contiguous()
 
-        # transformed_image = subject.stack.data.float()
-        # transformed_flow = subject.flow.data.float()
-
         total_linear_xyz = self._get_spatial_transform_linear_matrix(subject)
 
         # Dataset convention -> (dz, dy, dx).
