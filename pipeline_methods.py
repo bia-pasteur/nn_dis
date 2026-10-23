@@ -157,19 +157,19 @@ def _update_results_method(
 
     h_mask = h * mask
 
-    rmse_flow = rmse(h_mask, results_im["flows"]["gt"])  # / norm_disp
+    rmse_flow = rmse(h_mask, results_im["flows"]["gt"]) / norm_disp
 
     strain_of = strain_mask(h_mask, [1, 1, 1], mask)
-    rmse_strain = rmse(strain_of, results_im["strain"]["gt"])  # / norm_strain
+    rmse_strain = rmse(strain_of, results_im["strain"]["gt"]) / norm_strain
 
     def_of = deformation(strain_of)
-    rmse_def = rmse(def_of, results_im["deformation"]["gt"])  # / norm_def
+    rmse_def = rmse(def_of, results_im["deformation"]["gt"]) / norm_def
 
     stress_of = stress_mask(strain_of, mu, lambda_)
-    rmse_stress = rmse(stress_of, results_im["stress"]["gt"])  # / norm_stress
+    rmse_stress = rmse(stress_of, results_im["stress"]["gt"]) / norm_stress
 
     traction_of = compute_traction_3d(stress_of[:, :, 0], -normals)
-    rmse_traction = rmse(traction_of, results_im["traction"]["gt"])  # / norm_traction
+    rmse_traction = rmse(traction_of, results_im["traction"]["gt"]) / norm_traction
 
     results_im["flows"][method_name] = h
     results_im["strain"][method_name] = strain_of

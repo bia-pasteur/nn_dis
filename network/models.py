@@ -120,8 +120,6 @@ class ConvBlockAnisotropic(nn.Module):
             ),
             nn.BatchNorm3d(out_channels),
             nn.GELU(),
-            # nn.GroupNorm(num_groups=8, num_channels=out_channels),
-            # nn.LeakyReLU(0.2, inplace=True),
             nn.Conv3d(
                 out_channels,
                 out_channels,
@@ -131,8 +129,6 @@ class ConvBlockAnisotropic(nn.Module):
             ),
             nn.BatchNorm3d(out_channels),
             nn.GELU(),
-            # nn.GroupNorm(num_groups=8, num_channels=out_channels),
-            # nn.LeakyReLU(0.2, inplace=True),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -161,13 +157,6 @@ class UpsampleConvAnisotropic(nn.Module):
         is_2d: bool = False,
     ):
         super().__init__()
-        # scale = (1, 2, 2) if is_2d else 2.0
-        # self.upsample = nn.Upsample(
-        #     scale_factor=scale, mode="trilinear", align_corners=True
-        # )
-        # self.conv = ConvBlockAnisotropic(
-        #     in_channels + skip_channels, out_channels, is_2d=is_2d
-        # )
 
         self.conv = ConvBlockAnisotropic(
             in_channels=in_channels + skip_channels,
@@ -176,10 +165,6 @@ class UpsampleConvAnisotropic(nn.Module):
         )
 
     def forward(self, x: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
-        # x = self.upsample(x)
-        # x = torch.cat([x, skip], dim=1)
-        # return self.conv(x)
-
         x = F.interpolate(
             x,
             size=skip.shape[2:],
@@ -297,10 +282,8 @@ class NetworkPairwiseAnisotropic(nn.Module):
 
         self.encoder = nn.ModuleList()
         in_ch = ref_channels + moving_channels
-        # self.skip_channels = []
 
         for i, out_ch in enumerate(features):
-            # self.skip_channels.append(in_ch)
             self.encoder.append(
                 DownsampleConvAnisotropic(in_ch, out_ch, is_2d=(i < n_2d_levels))
             )
@@ -311,25 +294,6 @@ class NetworkPairwiseAnisotropic(nn.Module):
         )
 
         self.decoder = nn.ModuleList()
-
-        # reversed_features = list(reversed(features))
-        # reversed_skips = list(reversed(self.skip_channels))
-
-        # in_ch = features[-1]
-
-        # for i in range(len(reversed_features)):
-        #     encoder_level = len(features) - 1 - i
-        #     out_ch = reversed_features[i]
-        #     skip_ch = reversed_skips[i]
-        #     self.decoder.append(
-        #         UpsampleConvAnisotropic(
-        #             in_channels=in_ch,
-        #             skip_channels=skip_ch,
-        #             out_channels=out_ch,
-        #             is_2d=(encoder_level < n_2d_levels),
-        #         )
-        #     )
-        #     in_ch = out_ch
 
         for level in reversed(range(len(features))):
             skip_ch = features[level]
