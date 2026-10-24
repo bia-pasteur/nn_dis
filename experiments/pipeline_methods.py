@@ -235,6 +235,96 @@ def _compute_mean_stds_values(results: dict, method_name: str) -> dict:
     return results
 
 
+def _get_ugt_name(filename: str, noisy: bool) -> str:
+    """
+    Get the name of the Ground-Truth displacement file associated with an image.
+
+    For noisy images, the noise level suffix is removed before adding the ugt
+    suffix, since all the noisy versions of an image share the same ugt file.
+
+    Args:
+        filename (str): Name of the image file.
+        noisy (bool): Whether the image is a noisy version of a base image.
+
+    Returns:
+        str: Name of the corresponding ugt file.
+    """
+    if noisy:
+        filename = re.sub(r"_noise_\d+", "", filename)
+    return re.sub(r"_img\.(npy|tiff|tif)$", "_ugt.npy", filename)
+
+
+def _compute_rmse_vs_noise(results: dict) -> dict:
+    """
+    Compute the mean and std of every RMSE quantity for each noise level,
+    across all the images sharing this noise level, and add them to the results
+    dictionary under the keys "mean_rmse_<metric>_vs_noise" and
+    "std_rmse_<metric>_vs_noise". Also store the noise stds under "noise_stds".
+
+    Args:
+        results (dict): Results dictionary, whose per-image entries contain a
+                        "noise_index" and a "noise_std".
+
+    Returns:
+        dict: Updated results dictionary.
+    """
+    by_level: dict[int, list[dict]] = {}
+    for nb, res in results.items():
+        if isinstance(nb, int) and res and "noise_index" in res:
+            by_level.setdefault(res["noise_index"], []).append(res)
+
+    if not by_level:
+        raise ValueError(
+            "No noisy image results found: cannot compute the RMSE vs noise."
+        )
+
+    levels = sorted(by_level)
+    results["noise_indices"] = levels
+    results["noise_stds"] = [by_level[level][0]["noise_std"] for level in levels]
+
+    metric_names = {
+        "rmse_flows": "disp",
+        "rmse_strain": "strain",
+        "rmse_def": "def",
+        "rmse_stress": "stress",
+        "rmse_traction": "traction",
+    }
+
+    per_image_results = [res for images in by_level.values() for res in images]
+
+    for metric_key, metric_name in metric_names.items():
+        if not any(metric_key in res for res in per_image_results):
+            continue
+
+        methods = sorted(
+            {
+                m
+                for res in per_image_results
+                if metric_key in res
+                for m in res[metric_key]
+            }
+        )
+
+        results[f"mean_rmse_{metric_name}_vs_noise"] = {}
+        results[f"std_rmse_{metric_name}_vs_noise"] = {}
+
+        for method in methods:
+            means, stds = [], []
+            for level in levels:
+                vals = [
+                    res[metric_key][method]
+                    for res in by_level[level]
+                    if metric_key in res and method in res[metric_key]
+                ]
+                means.append(np.mean(vals))
+                stds.append(np.std(vals))
+
+            results[f"mean_rmse_{metric_name}_vs_noise"][method] = means
+            results[f"std_rmse_{metric_name}_vs_noise"][method] = stds
+
+    return results
+
+
 def _load_of_runtimes(path_of_results: Path) -> dict[str, float]:
     runtimes_df = pd.read_csv(path_of_results / "average_optical_flow_times.csv")
     return dict(zip(runtimes_df["method"], runtimes_df["average_time_seconds"]))
@@ -274,6 +364,7 @@ def compute_of_strain_traction(
     of_functions: list[str],
     results_folders: list[str | Path] | dict[str, str | Path],
     path_of_results: str | Path,
+    noise_stds: np.ndarray | None = None,
 ) -> dict:
     """
     Get Ground-Truth and compute model-based and optical-flow-based displacement, strain,
@@ -282,7 +373,10 @@ def compute_of_strain_traction(
 
     Args:
         folder_img_ugt (str | Path): Folder containing the images (*_img.npy / .tif) and
-                                     the GT displacements (*_ugt.npy).
+                                     the GT displacements (*_ugt.npy). If `noise_stds`
+                                     is given, the images are noisy versions named
+                                     *_noise_XX_img.npy sharing one *_ugt.npy file per
+                                     base image.
         of_functions (list[str]): Names of the optical flow methods whose results are stored
                                   in `path_of_results` as `flow_<method>_<filename>`.
         results_folders (list | dict): Folders containing the trained models.
@@ -290,10 +384,15 @@ def compute_of_strain_traction(
             - dict: {model_name: folder_path}.
         path_of_results (str | Path): Folder containing the optical flow results and
                                       "average_optical_flow_times.csv".
+        noise_stds (np.ndarray | None): Std of the noise of each image, indexed by the
+                                        "noise_XX" suffix (XX - 1). If None, the images
+                                        are assumed noiseless. Defaults to None.
 
     Returns:
         dict: Dictionary containing, for each image index, the GT and estimated fields
               for every model and OF method, plus the mean/std RMSE of every quantity.
+              When `noise_stds` is given, also the mean/std RMSE of every quantity
+              for each noise level ("mean_rmse_<metric>_vs_noise").
     """
     folder_img_ugt = Path(folder_img_ugt)
     path_of_results = Path(path_of_results)
@@ -320,6 +419,20 @@ def compute_of_strain_traction(
         lambda_ = E * nu / ((1.0 + nu) * (1.0 - (2 * nu)))
         mu = E / (2.0 * (1.0 + nu))
 
+        noise_index = None
+        if noise_stds is not None:
+            match_noise = re.search(r"_noise_(\d+)_img\.(npy|tiff|tif)$", filename)
+            if not match_noise:
+                raise ValueError(
+                    f"Cannot find the noise level in filename: {filename}"
+                )
+            noise_index = int(match_noise.group(1))
+            if not 1 <= noise_index <= len(noise_stds):
+                raise ValueError(
+                    f"Noise index {noise_index} out of range for {len(noise_stds)} "
+                    f"noise stds: {filename}"
+                )
+
         results_im = None
         norms_normals_gt = None
         mask_ref = None
@@ -334,12 +447,10 @@ def compute_of_strain_traction(
             if results_im is None:
                 mask_ref = mask
 
-                ugt_name = re.sub(r"_img\.(npy|tiff|tif)$", "_ugt.npy", filename)
+                ugt_name = _get_ugt_name(filename, noisy=noise_stds is not None)
                 ugt_raw = np.load(folder_img_ugt / ugt_name)
 
-                ugt_pixels = np.stack(
-                    [ugt_raw[i] for i in range(3)]
-                )  # / spacing[i] for i in range(3)])
+                ugt_pixels = np.stack([ugt_raw[i] for i in range(3)])
 
                 sy = 128 / ugt_pixels[1, 0].shape[1]
                 sx = 128 / ugt_pixels[2, 0].shape[2]
@@ -360,6 +471,9 @@ def compute_of_strain_traction(
             results_im["filename"] = filename
             results_im["E"] = E
             results_im["nu"] = nu
+            if noise_index is not None:
+                results_im["noise_index"] = noise_index
+                results_im["noise_std"] = float(noise_stds[noise_index - 1])
 
             results_im = _update_results_method(
                 results_im=results_im,
@@ -415,5 +529,149 @@ def compute_of_strain_traction(
         _compute_mean_stds_values(results, method)
 
     _compute_mean_std_null_disp(results)
+
+    if noise_stds is not None:
+        _compute_rmse_vs_noise(results)
+
+    return results
+
+
+def save_rmse_csv(results: dict, output_path: str | Path):
+    metrics = [
+        key.removeprefix("mean_")
+        for key in results
+        if isinstance(key, str)
+        and (key.startswith("mean_rmse_") or key == "mean_runtime")
+        and not key.endswith("_vs_noise")
+    ]
+
+    if not metrics:
+        raise ValueError("No RMSE or runtime metrics found in results.")
+
+    methods = results[f"mean_{metrics[0]}"].keys()
+
+    rows = []
+    for method in methods:
+        if method == "null":
+            continue
+
+        row = {"Method": method}
+
+        for metric in metrics:
+            mean = results[f"mean_{metric}"][method]
+            std = results.get(f"std_{metric}", {}).get(method)
+
+            row[metric] = (
+                f"{mean:.4g} ± {std:.4g}" if std is not None else f"{mean:.4g}"
+            )
+
+        rows.append(row)
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    pd.DataFrame(rows).to_csv(
+        output_path,
+        index=False,
+        encoding="utf-8-sig",
+    )
+
+
+def compute_results_micro_im(
+    img_path: str | Path,
+    results_folder: str | Path,
+    flows_folder: str | Path,
+    filename: str,
+    algo: list[str],
+    E: float,
+    nu: float,
+    erosion_iterations: int = 3,
+    channel: int | None = None,
+    default_spacing: list[float] | None = None,
+    crop: tuple[tuple[int, int], tuple[int, int], tuple[int, int]] | None = None,
+    model_type: str = "aniso",
+) -> dict:
+    """
+    Get the displacmeent field and mechanical values
+    computed with different methods on a microscopy image
+
+    Args:
+        img_path (str | Path): Path to the image.
+        results_folder (str | Path): Folders containing the trained deep learning model.
+        flows_folder (str | Path): Folders containing the computed optical flows.
+        filename (str): Name fo the image file.
+        algo (list[str]): List of the optical flow algorithm to fetch the results of.
+        E (float): Young's modulus.
+        nu (float): Poisson's ratio.
+        erosion_iterations (int): Number of erosion iterations to perform for estimating the boundary.
+        channel: Channel index to work on. None for images without channels. Defaults to None.
+        default_spacing: Default voxel spacing (Z, Y, X) if not in metadata. Defaults to None.
+        crop: Optional cropping ranges as ((d_start, d_end), (h_start, h_end), (w_start, w_end)).
+              If None, no cropping is applied. Defaults to None.
+        model_type (str, optional): Type of the model. Defaults to "aniso".
+
+    Returns:
+        dict: A dictionary containing the results associated with the image.
+    """
+    img, spacing, h_model, _ = register(
+        img_path=img_path,
+        folder_path=results_folder,
+        model_type=model_type,
+        channel=channel,
+        default_spacing=default_spacing,
+        crop=crop,
+    )
+    h_model = np.transpose(h_model, (1, 0, 2, 3, 4))
+
+    flows_folder = Path(flows_folder)
+
+    flows = []
+    model_names = []
+    flows.append(h_model)
+    model_names.append("Model")
+
+    for algorithm in algo:
+        algorithm = algorithm.lower()
+        h = np.load(flows_folder / f"flow_{algorithm}_{filename}")
+
+        if algorithm == "fista":
+            h = np.stack([h[i] / spacing[i] for i in range(h.shape[0])])
+
+        flows.append(h)
+        model_names.append(algorithm.upper())
+
+    # Lamé parameters.
+    lambda_ = E * nu / ((1.0 + nu) * (1.0 - 2.0 * nu))
+    mu = E / (2.0 * (1.0 + nu))
+
+    mask = img[0] > 0.1
+    mask_eroded = ndi.binary_erosion(
+        mask,
+        iterations=erosion_iterations,
+    )
+    inner_boundary = mask_eroded & ~ndi.binary_erosion(mask_eroded)
+
+    normals = compute_normals_from_mask_3d(mask_eroded)
+    normals[:, ~inner_boundary] = 0
+
+    results = {
+        "image": img,
+        "spacing": spacing,
+        "flows": [],
+        "def": [],
+        "tractions": [],
+        "model_names": model_names,
+    }
+
+    for h in flows:
+        h_mask = h * mask
+        strain = strain_mask(h_mask, [1, 1, 1], mask)
+        deformation_field = deformation(strain)
+        stress = stress_mask(strain, mu, lambda_)
+        traction = compute_traction_3d(stress[:, :, 0], -normals)
+
+        results["flows"].append(h[:, 0])
+        results["def"].append(deformation_field[0])
+        results["tractions"].append(traction)
 
     return results

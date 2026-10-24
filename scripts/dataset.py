@@ -45,8 +45,8 @@ def get_intensity_transforms():
 
     intensity_transforms = tio.Compose(
         [
-            # tio.RandomNoise(std=(0, 0.08), p=0.3),
-            tio.RandomBlur(std=(0, 1), p=0.2),
+            tio.RandomNoise(std=(0, 0.1), p=0.3),
+            # tio.RandomBlur(std=(0, 1), p=0.2),
         ],
     )
     return intensity_transforms
