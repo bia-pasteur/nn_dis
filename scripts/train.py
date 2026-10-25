@@ -4,6 +4,7 @@ Training of the network
 """
 
 import os
+import random
 import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -159,21 +160,46 @@ def compute_gt_weight(
     decay: bool,
     start_epoch: int,
     end_epoch: int,
+    final_weight: float = 0.0,
 ) -> float:
     """
     Compute the (possibly decayed) weight for the ground-truth supervision loss.
 
     - Before `start_epoch`: returns `base_weight` unchanged.
-    - Between `start_epoch` and `end_epoch`: linear decay to 0.
-    - After `end_epoch`: returns 0.
+    - Between `start_epoch` and `end_epoch`: linear decay to `final_weight`.
+    - After `end_epoch`: returns `final_weight`.
     """
     if not decay or epoch < start_epoch:
         return base_weight
     if epoch >= end_epoch:
-        return 0.0
+        return final_weight
 
     progress = (epoch - start_epoch) / (end_epoch - start_epoch)
-    return base_weight * (1.0 - progress)
+    return base_weight + (final_weight - base_weight) * progress
+
+
+def set_seed(seed: int | None, workers: int) -> tuple:
+    """
+    Seed every RNG source so that runs with the same config are comparable.
+
+    Returns the (generator, worker_init_fn) to pass to the training DataLoader.
+    """
+    if seed is None:
+        return None, None
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    def worker_init_fn(worker_id: int) -> None:
+        # DataLoader workers get a torch seed derived from the base seed, but
+        # numpy/python RNGs (used by torchio) are left unseeded without this.
+        worker_seed = (torch.initial_seed() + worker_id) % 2**32
+        np.random.seed(worker_seed)
+        random.seed(worker_seed)
+
+    return torch.Generator().manual_seed(seed), worker_init_fn
 
 
 def main(train_config: TrainConfig):
@@ -186,6 +212,11 @@ def main(train_config: TrainConfig):
     # Set device
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
+
+    # Seed everything before creating the model, so the init is reproducible
+    train_generator, worker_init_fn = set_seed(train_config.seed, train_config.workers)
+    if train_config.seed is not None:
+        print(f"Seeded run with seed={train_config.seed}")
 
     # Create model
     if train_config.model_type == "iso":
@@ -225,6 +256,20 @@ def main(train_config: TrainConfig):
     ]
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
 
+    # Learning rate scheduler (None keeps the constant lr)
+    scheduler = None
+    if train_config.lr_scheduler == "cosine":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=train_config.epochs,
+            eta_min=train_config.lr_min if train_config.lr_min is not None else 0.0,
+        )
+    elif train_config.lr_scheduler is not None:
+        raise ValueError(
+            f"Unknown lr_scheduler '{train_config.lr_scheduler}'. "
+            "Expected None or 'cosine'."
+        )
+
     # Create dataloader
     if train_config.combine:
         micro_train_dataset = TractionDataset(
@@ -251,6 +296,8 @@ def main(train_config: TrainConfig):
             batch_size=train_config.batch_size,
             num_workers=train_config.workers,
             shuffle=True,
+            generator=train_generator,
+            worker_init_fn=worker_init_fn,
         )
 
         micro_val_dataset = TractionDataset(
@@ -290,6 +337,8 @@ def main(train_config: TrainConfig):
             batch_size=train_config.batch_size,
             num_workers=train_config.workers,
             shuffle=True,
+            generator=train_generator,
+            worker_init_fn=worker_init_fn,
         )
 
         validation_dataset = TractionDataset(
@@ -320,6 +369,7 @@ def main(train_config: TrainConfig):
             decay=train_config.gt_decay,
             start_epoch=train_config.gt_decay_start_epoch,
             end_epoch=train_config.gt_decay_end_epoch,
+            final_weight=train_config.gt_decay_final or 0.0,
         )
         loss_weights[3] = current_gt_weight
         # Train for one epoch
@@ -357,6 +407,11 @@ def main(train_config: TrainConfig):
 
         epoch_log_train["gt_weight"] = current_gt_weight
         epoch_log_validation["gt_weight"] = current_gt_weight
+        epoch_log_train["lr"] = optimizer.param_groups[0]["lr"]
+        epoch_log_validation["lr"] = optimizer.param_groups[0]["lr"]
+
+        if scheduler is not None:
+            scheduler.step()
 
         pd.DataFrame.from_dict(logs_train).to_csv(output_dir / "logs_train.csv")
         pd.DataFrame.from_dict(logs_validation).to_csv(

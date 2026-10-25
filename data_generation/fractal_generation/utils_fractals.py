@@ -2,7 +2,7 @@ import numpy as np
 import pyvista as pv
 from scipy.ndimage import gaussian_filter
 
-from fractal_generation.fractals_generation import IFSFunction3D
+from data_generation.fractal_generation.fractals_generation import IFSFunction3D
 
 
 def random_orthogonal_matrix(rng):

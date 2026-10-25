@@ -1,0 +1,7 @@
+noise_params:
+  folder_images: "/Users/josephinelahmani/Desktop/data/dataset_3d"
+  folder_noisy_images: "/Users/josephinelahmani/Desktop/data/dataset_3d_of_noise"
+  seed: 5431
+  max_std: 0.2
+  nb_images: 10
+  nb_noisy_images: 5

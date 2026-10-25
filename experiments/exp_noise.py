@@ -29,61 +29,99 @@ PATHS_TO_MODELS = {  #'train 1': '/Users/josephinelahmani/Desktop/nn_dis/results
 }
 OF_FUNCTIONS = ["fista", "hs", "tvl1", "ilk"]
 SAVE_DIR = "/Users/josephinelahmani/Desktop/nn_dis/results/plots"
-STDS_NOISE = np.linspace(0.0, 0.5, 10)
+STDS_NOISE = np.linspace(0.0, 0.2, 5)
 BEST_MODEL = "train 14"
 SAVE_DIR_DICT = Path("/Users/josephinelahmani/Desktop/nn_dis/results/dict")
 RECOMPUTE = False
 SAVE_PATH_DICT = SAVE_DIR_DICT / "results_noisy.pkl"
 
 if RECOMPUTE:
-    results_synthetic_images = compute_of_strain_traction(
-        folder_img_ugt=FOLDER_NOISY_IMG,
-        of_functions=OF_FUNCTIONS,
-        results_folders=PATHS_TO_MODELS,
-        path_of_results=PATH_OF_RESULTS,
-        noise_stds=STDS_NOISE,
-    )
+    def main():
+        results_synthetic_images = compute_of_strain_traction(
+            folder_img_ugt=FOLDER_NOISY_IMG,
+            of_functions=OF_FUNCTIONS,
+            results_folders=PATHS_TO_MODELS,
+            path_of_results=PATH_OF_RESULTS,
+            noise_stds=STDS_NOISE,
+        )
 
-    SAVE_DIR_DICT.mkdir(parents=True, exist_ok=True)
-    with SAVE_PATH_DICT.open("wb") as f:
-        pickle.dump(
-            results_synthetic_images,
-            f,
-            protocol=pickle.HIGHEST_PROTOCOL,
+        SAVE_DIR_DICT.mkdir(parents=True, exist_ok=True)
+        with SAVE_PATH_DICT.open("wb") as f:
+            pickle.dump(
+                results_synthetic_images,
+                f,
+                protocol=pickle.HIGHEST_PROTOCOL,
+            )
+
+        save_rmse_csv(
+            results=results_synthetic_images,
+            output_path=SAVE_DIR_DICT / "rmse_noisy.csv",
+        )
+
+        save_scatter_comparison(
+            results=results_synthetic_images,
+            results_dir=Path(SAVE_DIR),
+            methods=[
+                ("Proposed", BEST_MODEL),
+                ("HS", "hs"),
+                ("Hessian HS", "fista"),
+                ("TV-L1", "tvl1"),
+                ("ILK", "ilk"),
+            ],
+            strain=True,
+        )
+
+        save_rmse_vs_noise(
+            results=results_synthetic_images,
+            results_dir=Path(SAVE_DIR),
+            methods=[
+                ("Proposed", BEST_MODEL),
+                ("HS", "hs"),
+                ("Hessian HS", "fista"),
+                ("TV-L1", "tvl1"),
+                ("ILK", "ilk"),
+            ],
+            metric="def",
+            highlight=BEST_MODEL,
         )
 
 else:
-    with SAVE_PATH_DICT.open("rb") as f:
-        results_synthetic_images = pickle.load(f)
+    def main():
+        with SAVE_PATH_DICT.open("rb") as f:
+            results_synthetic_images = pickle.load(f)
 
-save_rmse_csv(
-    results=results_synthetic_images,
-    output_path=SAVE_DIR_DICT / "rmse_noisy.csv",
-)
+        save_rmse_csv(
+            results=results_synthetic_images,
+            output_path=SAVE_DIR_DICT / "rmse_noisy.csv",
+        )
 
-save_scatter_comparison(
-    results=results_synthetic_images,
-    results_dir=Path(SAVE_DIR),
-    methods=[
-        ("Proposed", BEST_MODEL),
-        ("HS", "hs"),
-        ("Hessian HS", "fista"),
-        ("TV-L1", "tvl1"),
-        ("ILK", "ilk"),
-    ],
-    strain=True,
-)
+        save_scatter_comparison(
+            results=results_synthetic_images,
+            results_dir=Path(SAVE_DIR),
+            methods=[
+                ("Proposed", BEST_MODEL),
+                ("HS", "hs"),
+                ("Hessian HS", "fista"),
+                ("TV-L1", "tvl1"),
+                ("ILK", "ilk"),
+            ],
+            strain=True,
+        )
 
-save_rmse_vs_noise(
-    results=results_synthetic_images,
-    results_dir=Path(SAVE_DIR),
-    methods=[
-        ("Proposed", BEST_MODEL),
-        ("HS", "hs"),
-        ("Hessian HS", "fista"),
-        ("TV-L1", "tvl1"),
-        ("ILK", "ilk"),
-    ],
-    metric="traction",
-    highlight=BEST_MODEL,
-)
+        save_rmse_vs_noise(
+            results=results_synthetic_images,
+            results_dir=Path(SAVE_DIR),
+            methods=[
+                ("Proposed", BEST_MODEL),
+                ("HS", "hs"),
+                ("Hessian HS", "fista"),
+                ("TV-L1", "tvl1"),
+                ("ILK", "ilk"),
+            ],
+            metric="def",
+            highlight=BEST_MODEL,
+        )
+
+
+if __name__ == "__main__":
+    main()

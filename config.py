@@ -40,6 +40,18 @@ class FractalParams:
 
 
 @dataclass
+class NoiseParams:
+    """Parameters for noisy image generation"""
+
+    folder_images: str
+    folder_noisy_images: str
+    seed: int
+    max_std: float
+    nb_images: int
+    nb_noisy_images: int
+
+
+@dataclass
 class DatasetCreation:
     """Parameters for dataset creation"""
 
@@ -72,6 +84,10 @@ class TrainConfig:
     gt_decay: bool | None = False
     gt_decay_start_epoch: int | None = None
     gt_decay_end_epoch: int | None = None
+    gt_decay_final: float | None = 0.0
+    seed: int | None = None
+    lr_scheduler: str | None = None
+    lr_min: float | None = None
     channel: int | None = None
     mask: bool = False
     combine: bool = False
