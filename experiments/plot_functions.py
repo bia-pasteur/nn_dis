@@ -263,7 +263,6 @@ def save_rmse_vs_noise(
     results_dir: str | Path,
     methods: list[tuple[str, str]],
     metric: str = "disp",
-    highlight: str | None = None,
     display: bool = False,
 ) -> None:
     """
@@ -280,8 +279,6 @@ def save_rmse_vs_noise(
                                          methods to plot.
         metric (str): Metric to plot: "disp", "strain", "def", "stress" or
                       "traction". Defaults to "disp".
-        highlight (str | None): Results key of the method to emphasize (thicker
-                                line, full opacity). Defaults to None.
         display (bool, optional): Whether to display the figure or not. Defaults to False.
     """
     mean_key = f"mean_rmse_{metric}_vs_noise"
@@ -311,20 +308,9 @@ def save_rmse_vs_noise(
 
     for i, (name, method_key) in enumerate(methods):
         means = np.asarray(results[mean_key][method_key])
-        stds = np.asarray(results[std_key][method_key])
 
-        emphasized = highlight is not None and method_key == highlight
-        alpha = 1.0 if emphasized else 0.65
-        linewidth = 2.5 if emphasized else 2.0
+        linewidth = 2.0
 
-        ax.fill_between(
-            noise_stds,
-            means - stds,
-            means + stds,
-            color=colors(i % 10),
-            # alpha=0.12,
-            linewidth=0,
-        )
         ax.plot(
             noise_stds,
             means,
@@ -332,7 +318,6 @@ def save_rmse_vs_noise(
             marker=markers[i % len(markers)],
             markersize=7,
             linewidth=linewidth,
-            alpha=alpha,
             label=name,
             zorder=3,
         )

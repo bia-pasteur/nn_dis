@@ -52,6 +52,22 @@ class NoiseParams:
 
 
 @dataclass
+class SubsetParams:
+    """Parameters for creating dataset-size ablation subsets
+
+    Creates `train_size_N` folders (nested subsets: size k images are the first
+    k of the seeded permutation, so subsets nest) with relative symlinks to the
+    source images. The ground-truth folder is shared, since `get_ugt` looks
+    files up by name.
+    """
+
+    dataset_root: str
+    source_folder: str = "train"
+    sizes: List[int] | None = None
+    seed: int = 42
+
+
+@dataclass
 class DatasetCreation:
     """Parameters for dataset creation"""
 
@@ -84,10 +100,7 @@ class TrainConfig:
     gt_decay: bool | None = False
     gt_decay_start_epoch: int | None = None
     gt_decay_end_epoch: int | None = None
-    gt_decay_final: float | None = 0.0
     seed: int | None = None
-    lr_scheduler: str | None = None
-    lr_min: float | None = None
     channel: int | None = None
     mask: bool = False
     combine: bool = False

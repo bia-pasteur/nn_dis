@@ -20,11 +20,11 @@ PATHS_TO_MODELS = {  #'train 1': '/Users/josephinelahmani/Desktop/nn_dis/results
     # "train 9": "/Users/josephinelahmani/Desktop/nn_dis/results/train_9",
     # "train 10": "/Users/josephinelahmani/Desktop/nn_dis/results/train_10",
     # "train 11": "/Users/josephinelahmani/Desktop/nn_dis/results/train_11",
-    "train 12": "/Users/josephinelahmani/Desktop/nn_dis/results/train_12",
-    "train 13": "/Users/josephinelahmani/Desktop/nn_dis/results/train_13",
+    # "train 12": "/Users/josephinelahmani/Desktop/nn_dis/results/train_12",
+    # "train 13": "/Users/josephinelahmani/Desktop/nn_dis/results/train_13",
     "train 14": "/Users/josephinelahmani/Desktop/nn_dis/results/train_14",
-    # "train 15": "/Users/josephinelahmani/Desktop/nn_dis/results/train_15",
-    "train 16": "/Users/josephinelahmani/Desktop/nn_dis/results/train_16",
+    # "train 16": "/Users/josephinelahmani/Desktop/nn_dis/results/train_16",
+    # "train 17": "/Users/josephinelahmani/Desktop/nn_dis/results/train_17",
 }
 OF_FUNCTIONS = ["fista", "hs", "tvl1", "ilk"]
 SAVE_DIR_PLOTS = Path("/Users/josephinelahmani/Desktop/nn_dis/results/plots")

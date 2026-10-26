@@ -4,20 +4,14 @@ train_config:
     workers: 4
     batch_size: 10
     lr: 5e-3
-    # cosine annealing 5e-3 -> 1e-4: lets the model settle on the plateau
-    # instead of orbiting it (run-to-run variance was ~0.04-0.09 rmse_disp)
-    lr_scheduler: 'cosine'
-    lr_min: 1e-4
     seed: 42
     warp_param: 1000.0
     alpha_param: 100.0
     beta_param: 0.0
     gt_param: 1.0
-    # decay 1 -> 0.05 instead of 1 -> 0: keeps a small GT anchor after epoch 200
     gt_decay: True
     gt_decay_start_epoch: 100
     gt_decay_end_epoch: 200
-    gt_decay_final: 0.05
     gpu: 0
     save_every: 100
     features: [16, 32, 32, 64, 64]
