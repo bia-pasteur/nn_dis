@@ -13,7 +13,7 @@ train_config:
     gt_decay_end_epoch: 200  
     gpu: 0
     save_every: 100
-    features: [16, 32, 32, 64, 64]
+    features: [16, 32, 32]
     flow_multiplier: 10
     model_type: 'iso'
     train_data: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian_new/train' 

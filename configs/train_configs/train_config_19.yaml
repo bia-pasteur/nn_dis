@@ -16,7 +16,7 @@ train_config:
     features: [16, 32, 32, 64, 64]
     flow_multiplier: 10
     model_type: 'aniso'
-    train_data: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian_new/train_size_100' 
+    train_data: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian_new/train_100' 
     val_data: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian_new/val'
     reduction: "mean"
     channel: null
