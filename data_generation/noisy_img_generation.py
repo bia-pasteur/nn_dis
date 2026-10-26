@@ -7,7 +7,22 @@ import numpy as np
 from config import NoiseParams
 
 
-def add_noise(img: np.ndarray, std: float, rng: np.random.Generator) -> np.ndarray:
+def add_noise(
+    img: np.ndarray,
+    std: float,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """
+    Add Gaussian noise to an image.
+
+    Args:
+        img (np.ndarray): Image.
+        std (float): Standard deviation of the added Gaussian nosie.
+        rng (np.random.Generator): Random generator for reproducibility.
+
+    Returns:
+        np.ndarray: Noisy image.
+    """
     return np.clip(img + rng.normal(0.0, std, size=img.shape), 0.0, 1.0)
 
 

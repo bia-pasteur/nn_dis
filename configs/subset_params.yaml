@@ -1,5 +1,5 @@
 subset_params:
   dataset_root: '/Users/josephinelahmani/helix_mount/data/fractals/rigid_gaussian_new'
   source_folder: 'train'
-  sizes: [10, 100, 300, 500]
+  sizes: [10, 100, 300] #[10, 100, 300, 500]
   seed: 42

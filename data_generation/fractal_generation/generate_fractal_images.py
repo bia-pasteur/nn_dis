@@ -44,8 +44,58 @@ def create_full_fractal_image(
     translation_min: float | None = None,
     translation_max: float | None = None,
 ):
+    """
+    Create a 3D image of a fractal that deforms.
+
+    The fractal is generated as an iterated function system (IFS) and deformed using
+    a displacement field created either by Perlin noise, Gaussian noise, rigid motion
+    or rigid motion + Gaussian noise.
+
+    Args:
+        seed (int): Seed for reproducibility.
+        n_functions (int): Number of affine maps in the IFS.
+        min_singular_value (float): Lower bound for the singular values of each affine matrix.
+        max_singular_value (float): Upper bound for the singular values of each affine matrix (<1).
+        nb_iterations (int): Number of IFS iterations.
+        translation_scale (float): Translation component bounds (Uniform(-translation_scale, translation_scale)).
+        size_img_x (int): Size of the output volume in x.
+        size_img_y (int): Size of the output volume in y.
+        size_img_z (int): Size of the output volume in z.
+        pad_x (int): Margin in voxels left empty on x edges.
+        pad_y (int): Margin in voxels left empty on y edges.
+        pad_z (int): Margin in voxels left empty on z edges.
+        amplitude_min_dis (float | None, optional): Perlin noise minimum amplitude. Defaults to None.
+        amplitude_max_dis (float | None, optional): Perlin noise maximum amplitude. Defaults to None.
+        freq_min_dis (float | None, optional): Perlin noise minimum frequency. Defaults to None.
+        freq_max_dis (float | None, optional): Perlin noise maximum frequency. Defaults to None.
+        sigma_gaussian_min (float | None, optional): Gaussian minimum filter sigma. Defaults to None.
+        sigma_gaussian_max (float | None, optional): Gaussian maximum filter sigma. Defaults to None.
+        alpha_gaussian_min (float | None, optional): Gaussian minimum magnitude. Defaults to None.
+        alpha_gaussian_max (float | None, optional): Gaussian maximum magnitude. Defaults to None.
+        alpha_rigid_min (float | None, optional): Rigid minimum rotation angle around z (degrees). Defaults to None.
+        alpha_rigid_max (float | None, optional): Rigid maximum rotation angle around z (degrees). Defaults to None.
+        beta_rigid_min (float | None, optional): Rigid minimum rotation angle around y (degrees). Defaults to None.
+        beta_rigid_max (float | None, optional): Rigid maximum rotation angle around y (degrees). Defaults to None.
+        gamma_rigid_min (float | None, optional): Rigid minimum rotation angle around x (degrees). Defaults to None.
+        gamma_rigid_max (float | None, optional): Rigid maximum rotation angle around x (degrees). Defaults to None.
+        translation_min (float | None, optional): Rigid minimum translation per axis. Defaults to None.
+        translation_max (float | None, optional): Rigid maximum translation per axis. Defaults to None.
+
+    Raises:
+        ValueError: If neither the Perlin nor the Gaussian displacement
+            parameters are fully specified (and no rigid parameters are given).
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: A pair (img, u) where
+
+        - img is a (2, size_img_z, size_img_y, size_img_x) stack of the
+          original fractal image and its deformed version
+        - u is the (3, size_img_z, size_img_y, size_img_x) displacement
+          field (uz, uy, ux), in voxel units.
+    """
 
     rng = np.random.default_rng(seed)
+
     perlin_params = [
         amplitude_min_dis,
         amplitude_max_dis,

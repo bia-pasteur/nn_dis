@@ -3,7 +3,80 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import napari
 import numpy as np
+import pandas as pd
 import pyvista as pv
+
+
+def plot_losses(
+    folder: str,
+    loss_parts: list[str],
+    weights: list[float],
+    init_epoch: int = 0,
+):
+    """
+    Plot the loss parts of a model
+
+    Args:
+        folder (str): Folder containing the .csv file with the loss over epochs.
+        loss_parts (list[str]): Paths of the loss to be displayed.
+        weights (list[float]): Weights associated with each loss part.
+        init_epoch (int, optional): Epoch to start the visualization at. Defaults to 0.
+    """
+    train_logs = (
+        pd.read_csv(f"{folder}/logs_train.csv")
+        .iloc[init_epoch + 1 :]
+        .reset_index(drop=True)
+    )
+    val_logs = (
+        pd.read_csv(f"{folder}/logs_validation.csv")
+        .iloc[init_epoch:]
+        .reset_index(drop=True)
+    )
+
+    n_epochs = min(len(train_logs), len(val_logs))
+    train_logs = train_logs.iloc[:n_epochs]
+    val_logs = val_logs.iloc[:n_epochs]
+
+    epochs = range(init_epoch + 1, init_epoch + n_epochs + 1)
+
+    n_losses = len(loss_parts)
+
+    _, axes = plt.subplots(
+        1,
+        n_losses,
+        figsize=(6 * n_losses, 5),
+    )
+
+    if n_losses == 1:
+        axes = [axes]
+
+    for i, loss_part in enumerate(loss_parts):
+        name = "loss" if loss_part == "total" else f"loss_{loss_part}"
+
+        if name == "loss":
+            train_values = train_logs[name]
+            val_values = val_logs[name]
+            title = "Total loss"
+        else:
+            weight = weights[i - 1]
+
+            train_values = weight * train_logs[name]
+            val_values = weight * val_logs[name]
+            title = f"{name} * {weight}"
+
+        axes[i].plot(
+            epochs, train_values, label="Train loss (next epoch)", color="blue"
+        )
+        axes[i].plot(epochs, val_values, label="Validation loss", color="red")
+
+        axes[i].set_title(title)
+        axes[i].set_xlabel("Validation epoch")
+        axes[i].set_ylabel("Loss")
+        axes[i].legend()
+        axes[i].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.show()
 
 
 def add_flows_viewer(
@@ -187,6 +260,15 @@ def save_scatter_comparison(
     methods: list[tuple[str, str]],
     strain: bool = False,
 ):
+    """
+    Save a plot that displays the NRMSE vs run time of different OF methods and models.
+
+    Args:
+        results (dict): Dictionary containing the results for every OF method.
+        results_dir (str | Path): Directory where the .png figure will be saved.
+        methods (list[tuple[str, str]]): Methods to display onthe scatter plot.
+        strain (bool, optional): Whether to plot the strain vs the run time. Defaults to False.
+    """
     fig, axes = plt.subplots(
         1, 2 if strain else 1, figsize=(12, 6) if strain else (6, 3), squeeze=False
     )
@@ -267,12 +349,10 @@ def save_rmse_vs_noise(
 ) -> None:
     """
     Plot the mean RMSE of a quantity (default: displacement) as a function of the
-    noise std, for every method. The shaded area is the std across the images
-    sharing the same noise level.
+    noise std, for every method.
 
     Args:
-        results (dict): Results dictionary from `compute_of_strain_traction` called
-                        with `noise_stds`, containing "noise_stds" and the
+        results (dict): Results dictionary vontaining "noise_stds" and the
                         "mean_rmse_<metric>_vs_noise" / "std_rmse_<metric>_vs_noise" keys.
         results_dir (str | Path): Directory where the .png figure will be saved.
         methods (list[tuple[str, str]]): (display name, results key) pairs of the
@@ -418,7 +498,21 @@ def show_dis(
     display: bool = False,
     colorbar: bool = False,
 ) -> None:
+    """
+    Get a visualization of a vector field on an image.
 
+    Args:
+        img (np.ndarray): Image.
+        flow (np.ndarray): Field.
+        name (str): Name for saving.
+        arrow_factor (int): Factor to mutliply the arrows for visualization.
+        stride (int): Step between each displayed arrow.
+        zoom (float): Zoom value on the image for visualization.
+        z_size (float): Size of the voxels in z.
+        save_path (str | Path): Path to the directory where the .png figure will be saved.
+        display (bool, optional): Whether to display the figure or not. Defaults to False.
+        colorbar (bool, optional): Whether to display to colorbars for each quantity. Defaults to False.
+    """
     image = img[0]
     mask = image > 0.1
 
@@ -499,11 +593,22 @@ def show_cells(
     img: np.ndarray,
     name: str,
     z_size: float,
+    save_path: str | Path,
     display: bool = False,
-    save_path: str | Path = ".",
     zoom: float = 1.0,
 ) -> None:
+    """
+    Get a visualization of two time frames in a cell image
+    layered on top of one another.
 
+    Args:
+        img (np.ndarray): Image of a moving cell.
+        name (str): Name for saving.
+        z_size (float): Size of voxel in z.
+        save_path (str | Path): Path to the directory where the .png figure will be saved.
+        display (bool, optional): Whether to display the figure or not. Defaults to False.
+        zoom (float, optional): Zoom value on the image for visualization. Defaults to 1.0.
+    """
     img = np.asarray(img)
     spacing = (1.0, 1.0, z_size)
 
@@ -582,7 +687,29 @@ def show_dis_def_traction(
     zoom: float = 1.0,
     colorbar: bool = False,
 ) -> None:
-    """Plot displacement, deformation, and traction for each method."""
+    """
+    Plot displacement, deformation, and traction for each method
+    on an image.
+
+    Args:
+        img (np.ndarray): Image.
+        results (dict): Dictionary containing the results.
+        name (str): Name for saving.
+        arrow_factor_dis (float): Factor to multiply the displacement vectors by for visualization.
+        stride_dis (int): Step between each displayed displacement vector.
+        z_size (float): Size of the voxels in z.
+        arrow_factor_trac (list[float], optional): Factor to multiply the tracion vectors by for visualization.
+                                                   One value per method. Defaults to [1.0, 1.0, 1.0].
+        stride_trac (int, optional): Step between each displayed traction vector. Defaults to 2.
+        cell_opacity (float, optional): Opacity of the cell displayed under the vector fields. Defaults to 0.10.
+        display (bool, optional): Whether to display the figure or not. Defaults to False.
+        save_path (str | Path, optional): Path to the directory where the .png figure will be saved. Defaults to ".".
+        zoom (float, optional): Zoom value on the image for visualization. Defaults to 1.0.
+        colorbar (bool, optional): Whether to display to colorbars for each quantity. Defaults to False.
+
+    Raises:
+        ValueError: If the mechanical quantities do not all have th esame amount of methods.
+    """
     img = np.asarray(img)
     flows = [np.asarray(f, dtype=float) for f in results["flows"]]
     tractions = [np.asarray(t, dtype=float) for t in results["tractions"]]

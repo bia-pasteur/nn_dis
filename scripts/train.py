@@ -202,20 +202,6 @@ def main(train_config: TrainConfig):
     ]
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
 
-    # Learning rate scheduler (None keeps the constant lr)
-    scheduler = None
-    if train_config.lr_scheduler == "cosine":
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer,
-            T_max=train_config.epochs,
-            eta_min=train_config.lr_min if train_config.lr_min is not None else 0.0,
-        )
-    elif train_config.lr_scheduler is not None:
-        raise ValueError(
-            f"Unknown lr_scheduler '{train_config.lr_scheduler}'. "
-            "Expected None or 'cosine'."
-        )
-
     # Create dataloader
     if train_config.combine:
         micro_train_dataset = TractionDataset(
@@ -337,9 +323,6 @@ def main(train_config: TrainConfig):
 
         update_log(logs_train, epoch_log_train)
         update_log(logs_validation, epoch_log_validation)
-
-        if scheduler is not None:
-            scheduler.step()
 
         pd.DataFrame.from_dict(logs_train).to_csv(output_dir / "logs_train.csv")
         pd.DataFrame.from_dict(logs_validation).to_csv(

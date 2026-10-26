@@ -1,5 +1,5 @@
+import os
 import random
-import shutil
 from pathlib import Path
 
 import jsonargparse
@@ -23,9 +23,10 @@ def make_subsets(subset_params: SubsetParams) -> None:
         destination.mkdir()
 
         for source_file in files[:size]:
-            shutil.copy2(source_file, destination / source_file.name)
+            link = destination / source_file.name
 
-        print(f"{size} fichiers copiés dans {destination}")
+            target = os.path.relpath(source_file, start=destination)
+            link.symlink_to(target)
 
 
 if __name__ == "__main__":
