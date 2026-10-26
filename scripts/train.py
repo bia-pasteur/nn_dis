@@ -153,6 +153,30 @@ def epoch_(
     )
 
 
+def compute_gt_weight(
+    epoch: int,
+    base_weight: float,
+    decay: bool,
+    start_epoch: int,
+    end_epoch: int,
+    final_weight: float = 0.0,
+) -> float:
+    """
+    Compute the (possibly decayed) weight for the ground-truth supervision loss.
+
+    - Before `start_epoch`: returns `base_weight` unchanged.
+    - Between `start_epoch` and `end_epoch`: linear decay to `final_weight`.
+    - After `end_epoch`: returns `final_weight`.
+    """
+    if not decay or epoch < start_epoch:
+        return base_weight
+    if epoch >= end_epoch:
+        return final_weight
+
+    progress = (epoch - start_epoch) / (end_epoch - start_epoch)
+    return base_weight + (final_weight - base_weight) * progress
+
+
 def main(train_config: TrainConfig):
     """
     Main entry for training
@@ -291,6 +315,15 @@ def main(train_config: TrainConfig):
     logs_train, logs_validation = {}, {}
     best_loss = float("inf")
     for epoch in tqdm(range(train_config.epochs), desc="Epochs"):
+        current_gt_weight = compute_gt_weight(
+            epoch=epoch,
+            base_weight=train_config.gt_param,
+            decay=train_config.gt_decay,
+            start_epoch=train_config.gt_decay_start_epoch,
+            end_epoch=train_config.gt_decay_end_epoch,
+            final_weight=train_config.gt_decay_final or 0.0,
+        )
+        loss_weights[3] = current_gt_weight
         # Train for one epoch
         epoch_log_train = epoch_(
             model=model,
@@ -320,6 +353,9 @@ def main(train_config: TrainConfig):
                 training=False,
                 reduction=train_config.reduction,
             )
+
+        epoch_log_train["gt_weight"] = current_gt_weight
+        epoch_log_validation["gt_weight"] = current_gt_weight
 
         update_log(logs_train, epoch_log_train)
         update_log(logs_validation, epoch_log_validation)

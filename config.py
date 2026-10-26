@@ -100,6 +100,7 @@ class TrainConfig:
     gt_decay: bool | None = False
     gt_decay_start_epoch: int | None = None
     gt_decay_end_epoch: int | None = None
+    gt_decay_final: float | None = 0.0
     seed: int | None = None
     channel: int | None = None
     mask: bool = False
