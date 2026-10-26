@@ -55,7 +55,6 @@ class ConvBlock(nn.Module):
         in_channels: int,
         out_channels: int,
         kernel_size: int = 3,
-        stride: int = 2,
         padding: int = 1,
     ):
         super().__init__()
@@ -64,13 +63,20 @@ class ConvBlock(nn.Module):
                 in_channels,
                 out_channels,
                 kernel_size=kernel_size,
-                stride=stride,
                 padding=padding,
                 padding_mode="reflect",
             ),
             nn.BatchNorm3d(out_channels),
-            # nn.GroupNorm(num_groups=8, num_channels=out_channels),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.GELU(),
+            nn.Conv3d(
+                out_channels,
+                out_channels,
+                kernel_size=kernel_size,
+                padding=padding,
+                padding_mode="reflect",
+            ),
+            nn.BatchNorm3d(out_channels),
+            nn.GELU(),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -80,27 +86,38 @@ class ConvBlock(nn.Module):
 class DownsampleConv(nn.Module):
     def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
-        self.conv = ConvBlock(
-            in_channels, out_channels, stride=2
-        )  # stride = 2 pour le downsampling : à changer ? format (D, H, W)
+        self.conv = ConvBlock(in_channels, out_channels)
+        self.pool = nn.MaxPool3d(
+            kernel_size=(2, 2, 2),
+            stride=(2, 2, 2),
+        )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.conv(x)
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        skip = self.conv(x)
+        pooled = self.pool(skip)
+        return skip, pooled
 
 
 class UpsampleConv(nn.Module):
-    def __init__(self, in_channels: int, skip_channels: int, out_channels: int):
+    def __init__(
+        self,
+        in_channels: int,
+        skip_channels: int,
+        out_channels: int,
+    ):
         super().__init__()
-        self.upsample = nn.Upsample(
-            scale_factor=2.0, mode="trilinear", align_corners=True
-        )  # scale_factor can be size = moving size
-
         self.conv = ConvBlock(
-            in_channels=in_channels + skip_channels, out_channels=out_channels, stride=1
+            in_channels=in_channels + skip_channels,
+            out_channels=out_channels,
         )
 
     def forward(self, x: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
-        x = self.upsample(x)
+        x = F.interpolate(
+            x,
+            size=skip.shape[2:],
+            mode="trilinear",
+            align_corners=True,
+        )
         x = torch.cat([x, skip], dim=1)
         return self.conv(x)
 
@@ -190,40 +207,42 @@ class NetworkPairwise(nn.Module):
 
         self.ndim = ndim
         self.device = device
-        self._upsample_mode = "trilinear"
         self.flow_multiplier = flow_multiplier
 
-        in_channels = ref_channels + moving_channels
-
         self.encoder = nn.ModuleList()
+        self.pool = nn.MaxPool3d(kernel_size=2, stride=2)
 
-        self.skip_channels = []
-        in_ch = in_channels
-        for feature in features:
-            self.skip_channels.append(in_ch)
-            self.encoder.append(DownsampleConv(in_ch, feature))
-            in_ch = feature
+        in_ch = ref_channels + moving_channels
 
-        self.bottleneck = ConvBlock(features[-1], features[-1], stride=1)
+        for out_ch in features:
+            self.encoder.append(ConvBlock(in_ch, out_ch))
+            in_ch = out_ch
+
+        self.bottleneck = ConvBlock(
+            in_channels=in_ch,
+            out_channels=in_ch,
+        )
 
         self.decoder = nn.ModuleList()
-        reversed_features = list(reversed(features))
-        reversed_skips = list(reversed(self.skip_channels))
 
-        in_ch = features[-1]
-
-        for i in range(len(reversed_features)):
-            out_ch = reversed_features[i]
-            skip_ch = reversed_skips[i]
+        for level in reversed(range(len(features))):
+            skip_ch = features[level]
+            out_ch = features[level]
 
             self.decoder.append(
                 UpsampleConv(
-                    in_channels=in_ch, skip_channels=skip_ch, out_channels=out_ch
+                    in_channels=in_ch,
+                    skip_channels=skip_ch,
+                    out_channels=out_ch,
                 )
             )
             in_ch = out_ch
 
-        self.flow_head = nn.Conv3d(in_ch, ndim, kernel_size=1, padding_mode="reflect")
+        self.flow_head = nn.Conv3d(
+            in_channels=in_ch,
+            out_channels=ndim,
+            kernel_size=1,
+        )
 
         nn.init.normal_(self.flow_head.weight, mean=0.0, std=1e-3)
         nn.init.zeros_(self.flow_head.bias)
@@ -237,18 +256,22 @@ class NetworkPairwise(nn.Module):
         return_warped_moving: bool = False,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
 
+        assert ref.ndim == 5 and moving.ndim == 5, (
+            f"Wrong shapes ! Got {ref.shape=}, {moving.shape=}"
+        )
+
         x = torch.cat([ref, moving], dim=1)
 
         skips = []
         for enc_block in self.encoder:
-            skips.append(x)
-            x = enc_block(x)
+            skip = enc_block(x)
+            skips.append(skip)
+            x = self.pool(skip)
 
         x = self.bottleneck(x)
 
-        skips = list(reversed(skips))
-        for i, dec_block in enumerate(self.decoder):
-            x = dec_block(x, skips[i])
+        for dec_block, skip in zip(self.decoder, reversed(skips)):
+            x = dec_block(x, skip)
 
         field = self.flow_head(x) * self.flow_multiplier
 
