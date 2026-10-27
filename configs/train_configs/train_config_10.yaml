@@ -3,10 +3,10 @@ train_config:
     epochs: 1000
     workers: 4
     batch_size: 10
-    lr: 5e-4
+    lr: 5e-3
     warp_param: 1000.0
     alpha_param: 100.0
-    beta_param: 0.0
+    beta_param: 100.0
     gt_param: 1.0
     gt_decay: True        
     gt_decay_start_epoch: 100 
@@ -23,3 +23,4 @@ train_config:
     mask: False
     combine: False
     path_gt: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian_new/all_data'
+    seed: 0

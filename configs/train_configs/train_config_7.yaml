@@ -10,7 +10,7 @@ train_config:
     gt_param: 1.0
     gt_decay: False       
     gt_decay_start_epoch: 100 
-    gt_decay_end_epoch: 150  
+    gt_decay_end_epoch: 500
     gpu: 0
     save_every: 100
     features: [16, 32, 32, 64, 64]
@@ -23,3 +23,4 @@ train_config:
     mask: False
     combine: False
     path_gt: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian_new/all_data'
+    seed: 0
