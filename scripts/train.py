@@ -156,27 +156,13 @@ def epoch_(
     )
 
 
-def seed_everything(seed: int | None = None) -> int:
-    """
-    Seed all randomness (python, numpy, torch) for reproducible training.
-
-    """
-    if seed is None:
-        seed = torch.initial_seed() % 2**32
-
+def seed_everything(seed: int) -> int:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-
     return seed
-
-
-def worker_init_fn(worker_id: int) -> None:
-    worker_seed = torch.initial_seed() % 2**32
-    np.random.seed(worker_seed)
-    random.seed(worker_seed)
 
 
 def compute_gt_weight(
@@ -214,8 +200,7 @@ def main(train_config: TrainConfig):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    seed = seed_everything(train_config.seed)
-    print(f"Seed: {seed}")
+    seed_everything(train_config.seed)
 
     # Create model
     if train_config.model_type == "iso":
@@ -256,7 +241,6 @@ def main(train_config: TrainConfig):
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
 
     # Create dataloader
-    g = torch.Generator().manual_seed(seed)  # controls shuffle order
     if train_config.combine:
         micro_train_dataset = TractionDataset(
             Path(train_config.train_data),
@@ -282,8 +266,6 @@ def main(train_config: TrainConfig):
             batch_size=train_config.batch_size,
             num_workers=train_config.workers,
             shuffle=True,
-            generator=g,
-            worker_init_fn=worker_init_fn,
         )
 
         micro_val_dataset = TractionDataset(
@@ -306,8 +288,6 @@ def main(train_config: TrainConfig):
             batch_size=train_config.batch_size,
             num_workers=train_config.workers,
             shuffle=True,
-            generator=g,
-            worker_init_fn=worker_init_fn,
         )
 
     else:
@@ -325,8 +305,6 @@ def main(train_config: TrainConfig):
             batch_size=train_config.batch_size,
             num_workers=train_config.workers,
             shuffle=True,
-            generator=g,
-            worker_init_fn=worker_init_fn,
         )
 
         validation_dataset = TractionDataset(
@@ -339,16 +317,15 @@ def main(train_config: TrainConfig):
             validation_dataset,
             batch_size=train_config.batch_size,
             num_workers=train_config.workers,
-            worker_init_fn=worker_init_fn,
         )
 
     # Create output directory
     output_dir = Path(train_config.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Record the config and resolved seed alongside the run
+    # Record the config (including the seed) alongside the run
     (output_dir / "train_config.json").write_text(
-        json.dumps(dataclasses.asdict(train_config) | {"seed": seed}, indent=2)
+        json.dumps(dataclasses.asdict(train_config), indent=2)
     )
 
     # Training loop
