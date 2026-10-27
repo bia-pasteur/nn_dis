@@ -35,8 +35,8 @@ BEST_MODEL = "train 14"
 SAVE_DIR_DICT = Path("/Users/josephinelahmani/Desktop/nn_dis/results/dict")
 SAVE_PATH_DICT = SAVE_DIR_DICT / "results_noisy.pkl"
 
-RECOMPUTE = True
-METRIC = "disp"
+RECOMPUTE = False
+METRIC = ["disp", "strain", "stress", "traction"]
 
 if RECOMPUTE:
 

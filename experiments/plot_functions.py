@@ -344,27 +344,29 @@ def save_rmse_vs_noise(
     results: dict,
     results_dir: str | Path,
     methods: list[tuple[str, str]],
-    metric: str = "disp",
+    metric: str | list[str] = "disp",
     display: bool = False,
 ) -> None:
     """
-    Plot the mean RMSE of a quantity (default: displacement) as a function of the
-    noise std, for every method.
+    Plot mean RMSE versus noise standard deviation for one or more metrics.
+
+    Each metric is plotted in a separate subplot, with a single shared legend.
 
     Args:
-        results (dict): Results dictionary vontaining "noise_stds" and the
-                        "mean_rmse_<metric>_vs_noise" / "std_rmse_<metric>_vs_noise" keys.
-        results_dir (str | Path): Directory where the .png figure will be saved.
-        methods (list[tuple[str, str]]): (display name, results key) pairs of the
-                                         methods to plot.
-        metric (str): Metric to plot: "disp", "strain", "def", "stress" or
-                      "traction". Defaults to "disp".
-        display (bool, optional): Whether to display the figure or not. Defaults to False.
+        results: Results dictionary containing "noise_stds" and the
+            "mean_rmse_<metric>_vs_noise" keys.
+        results_dir: Directory where the PNG figure will be saved.
+        methods: (display name, results key) pairs of methods to plot.
+        metric: Metric or list of metrics to plot: "disp", "strain", "def",
+            "stress", or "traction". Defaults to "disp".
+        display: Whether to display the figure. Defaults to False.
     """
-    mean_key = f"mean_rmse_{metric}_vs_noise"
-    std_key = f"std_rmse_{metric}_vs_noise"
+    metrics = [metric] if isinstance(metric, str) else list(metric)
+    if not metrics:
+        raise ValueError("'metric' must contain at least one metric.")
 
-    for key in ("noise_stds", mean_key, std_key):
+    required_keys = ["noise_stds"] + [f"mean_rmse_{m}_vs_noise" for m in metrics]
+    for key in required_keys:
         if key not in results:
             raise ValueError(
                 f"'{key}' not found in results: compute the results with "
@@ -381,44 +383,77 @@ def save_rmse_vs_noise(
         "traction": "Traction",
     }
 
-    fig, ax = plt.subplots(figsize=(7, 5))
+    n_metrics = len(metrics)
+    fig, axes = plt.subplots(
+        1,
+        n_metrics,
+        figsize=(7 * n_metrics, 7),
+        sharex=True,
+        squeeze=False,
+    )
 
     colors = plt.get_cmap("tab10")
     markers = ["o", "s", "^", "D", "v", "P", "X"]
 
-    for i, (name, method_key) in enumerate(methods):
-        means = np.asarray(results[mean_key][method_key])
+    for ax, m in zip(axes.flat, metrics):
+        mean_key = f"mean_rmse_{m}_vs_noise"
 
-        linewidth = 2.0
+        for i, (name, method_key) in enumerate(methods):
+            means = np.asarray(results[mean_key][method_key])
 
-        ax.plot(
-            noise_stds,
-            means,
-            color=colors(i % 10),
-            marker=markers[i % len(markers)],
-            markersize=7,
-            linewidth=linewidth,
-            label=name,
-            zorder=3,
+            ax.plot(
+                noise_stds,
+                means,
+                color=colors(i % 10),
+                marker=markers[i % len(markers)],
+                markersize=7,
+                linewidth=2.0,
+                label=name,
+                zorder=3,
+            )
+
+        ax.set_title(
+            f"{labels.get(m, m)} (robustness study)",
+            fontsize=19,
+            pad=12,
         )
 
-    ax.set_xlabel("Noise standard deviation", fontsize=15)
-    ax.set_ylabel(f"{labels.get(metric, metric)} NRMSE", fontsize=15)
-    ax.grid(True, alpha=0.3)
-    ax.set_axisbelow(True)
+        ax.set_xlabel("Noise standard deviation", fontsize=17)
+        ax.set_ylabel(f"{labels.get(m, m)} NRMSE", fontsize=17)
+        ax.grid(True, alpha=0.3)
+        ax.set_axisbelow(True)
 
-    ax.legend(fontsize=13, frameon=False)
+    handles, legend_labels = axes[0, 0].get_legend_handles_labels()
 
-    fig.tight_layout()
+    fig.legend(
+        handles,
+        legend_labels,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.99),
+        ncol=len(handles),
+        fontsize=19,
+        frameon=True,
+        fancybox=True,
+        framealpha=1.0,
+        edgecolor="0.7",
+        facecolor="white",
+        borderpad=0.6,
+        columnspacing=2.0,
+        handletextpad=0.6,
+    )
+
+    fig.tight_layout(rect=(0, 0, 1, 0.85))
 
     results_dir = Path(results_dir)
     results_dir.mkdir(parents=True, exist_ok=True)
 
+    filename = f"rmse_{'_'.join(metrics)}_vs_noise.png"
     fig.savefig(
-        results_dir / f"rmse_{metric}_vs_noise.png",
+        results_dir / filename,
         dpi=300,
         bbox_inches="tight",
     )
+
     if display:
         plt.show()
     plt.close(fig)
@@ -846,7 +881,7 @@ def show_dis_def_traction(
                     volume,
                     scalars="deformation",
                     cmap="viridis",
-                    clim=(0, 1.0 or 1.0),
+                    clim=(0, max_def or 1.0),
                     shade=False,
                     show_scalar_bar=False,
                 )

@@ -40,7 +40,7 @@ show_dis_def_traction(
     arrow_factor_dis=2.0,
     stride_dis=3,
     z_size=results_img_sudheer["spacing"][0] / results_img_sudheer["spacing"][1],
-    arrow_factor_trac=[0.015, 0.004, 0.004],
+    arrow_factor_trac=[0.01, 0.004, 0.004],
     stride_trac=2,
     save_path=SAVE_PATH,
     display=False,

@@ -9,6 +9,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from pathlib import Path
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -81,19 +82,59 @@ def _compute_mean_std_null_disp(results: dict) -> dict:
     return results
 
 
+def erode_anisotropic(
+    mask: np.ndarray,
+    spacing: Sequence[float],
+    depth: float,
+) -> np.ndarray:
+    """
+    Erode a mask by a constant physical depth, accounting for anisotropic voxels.
+
+    A plain `ndi.binary_erosion(iterations=n)` erodes by n voxels along every
+    axis, i.e. `n * spacing[i]` physical units along axis i. For anisotropic
+    voxels (e.g. a thin cell imaged with a coarse z step) this pushes the
+    eroded boundary much deeper inside the cell along the coarse axis. Here
+    the mask is instead eroded by an ellipsoidal structuring element whose
+    radii are `depth / spacing[i]` voxels along axis i, floored at 1 voxel to
+    keep the boundary clear of the finite-difference stencil used to compute
+    the strain. With isotropic voxels this reduces to a Euclidean erosion by
+    `depth`.
+
+    Args:
+        mask (np.ndarray): Boolean mask of the cell, shape (Z, Y, X).
+        spacing (Sequence[float]): Physical size of a voxel (Z, Y, X).
+        depth (float): Physical depth of the erosion, in the same units as
+                       `spacing`.
+
+    Returns:
+        np.ndarray: Boolean mask eroded by `depth` physical units.
+    """
+    radii = np.maximum(1.0, np.asarray(depth) / np.asarray(spacing))
+
+    ranges = [np.arange(-int(np.ceil(r)), int(np.ceil(r)) + 1) for r in radii]
+    grids = np.meshgrid(*ranges, indexing="ij")
+    structure = sum((g / r) ** 2 for g, r in zip(grids, radii)) <= 1.0
+
+    return ndi.binary_erosion(mask, structure=structure)
+
+
 def _initialize_results_image_gt(
     u_gt: np.ndarray,
     mask: np.ndarray,
     mu: float,
     lambda_: float,
+    spacing: Sequence[float],
 ) -> tuple[dict, tuple[float, float, float, float, float, np.ndarray], np.ndarray]:
     """
     Initialize the results dictionary with Ground-Truth values
 
     Args:
         u_gt (np.ndarray): Ground-Truth displacmeent field
+        mask (np.ndarray): Mask of the cell
         mu (float): First Lamé parameter
         lambda_ (float): Second Lamé parameter
+        spacing (Sequence[float]): Physical size of a voxel (Z, Y, X) of the
+                                   grid the fields are defined on.
 
     Returns:
         dict, tuple[float, float, float, float, float, np.ndarray], np.ndarray:
@@ -104,7 +145,9 @@ def _initialize_results_image_gt(
     def_gt = deformation(strain_gt)
     stress_gt = stress_mask(strain_gt, mu, lambda_)
 
-    mask_eroded_gt = ndi.binary_erosion(mask, iterations=3)
+    # Erode by 3 voxels along the finest axis, i.e. a constant physical depth
+    # of 3 * min(spacing) on every side of the cell.
+    mask_eroded_gt = erode_anisotropic(mask, spacing, 3 * min(spacing))
     inner_boundary_gt = mask_eroded_gt & (~ndi.binary_erosion(mask_eroded_gt))
     normals_gt = compute_normals_from_mask_3d(mask_eroded_gt)
     normals_gt[:, ~inner_boundary_gt] = 0
@@ -150,6 +193,7 @@ def _update_results_method(
     lambda_: float,
     norms_normals_gt: tuple,
     time_method: float | None = None,
+    save_fields: bool = False,
 ) -> dict:
     """
     Update the results dictionary for one image with values related to one optical flow method.
@@ -188,11 +232,13 @@ def _update_results_method(
     traction_of = compute_traction_3d(stress_of[:, :, 0], -normals)
     rmse_traction = rmse(traction_of, results_im["traction"]["gt"]) / norm_traction
 
-    # results_im["flows"][method_name] = h
-    # results_im["strain"][method_name] = strain_of
-    # results_im["deformation"][method_name] = def_of
-    # results_im["stress"][method_name] = stress_of
-    # results_im["traction"][method_name] = traction_of
+    if save_fields:
+        results_im["flows"][method_name] = h
+        results_im["strain"][method_name] = strain_of
+        results_im["deformation"][method_name] = def_of
+        results_im["stress"][method_name] = stress_of
+        results_im["traction"][method_name] = traction_of
+
     results_im["runtime"][method_name] = time_method if time_method is not None else 0
 
     results_im["rmse_flows"][method_name] = rmse_flow
@@ -385,6 +431,7 @@ def _process_image(
     noise_stds: np.ndarray | None,
     folder_mask_img: str | Path | None,
     of_runtimes: dict[str, float],
+    save_fields: bool = False,
 ) -> dict:
     """
     Compute all the results for a single image (the body of the loop of
@@ -457,7 +504,7 @@ def _process_image(
             disp_gt = np.stack([reshape_img(ugt_pixels[i, 0], 32) for i in range(3)])
 
             results_im, norms_normals_gt = _initialize_results_image_gt(
-                disp_gt[:, np.newaxis] * mask, mask, mu, lambda_
+                disp_gt[:, np.newaxis] * mask, mask, mu, lambda_, spacing
             )
 
         results_im["image"] = img
@@ -479,6 +526,7 @@ def _process_image(
             mu=mu,
             lambda_=lambda_,
             norms_normals_gt=norms_normals_gt,
+            save_fields=save_fields,
         )
 
     for method in of_functions:
@@ -496,6 +544,7 @@ def _process_image(
             mu=mu,
             lambda_=lambda_,
             norms_normals_gt=norms_normals_gt,
+            save_fields=save_fields,
         )
 
     return results_im
@@ -508,6 +557,7 @@ def compute_of_strain_traction(
     path_of_results: str | Path,
     noise_stds: np.ndarray | None = None,
     folder_mask_img: str | Path | None = None,
+    save_fields: bool = False,
 ) -> dict:
     """
     Get Ground-Truth and compute model-based and optical-flow-based displacement, strain,
@@ -567,6 +617,7 @@ def compute_of_strain_traction(
         noise_stds=noise_stds,
         folder_mask_img=folder_mask_img,
         of_runtimes=of_runtimes,
+        save_fields=save_fields,
     )
 
     with ProcessPoolExecutor(max_workers=2) as executor:
@@ -653,7 +704,7 @@ def compute_results_micro_im(
     algo: list[str],
     E: float,
     nu: float,
-    erosion_iterations: int = 3,
+    erosion_iterations: int = 1,
     channel: int | None = None,
     default_spacing: list[float] | None = None,
     crop: tuple[tuple[int, int], tuple[int, int], tuple[int, int]] | None = None,
@@ -713,9 +764,12 @@ def compute_results_micro_im(
     mu = E / (2.0 * (1.0 + nu))
 
     mask = img[0] > 0.1
-    mask_eroded = ndi.binary_erosion(
+    # Same constant physical depth as the synthetic pipeline: 3 voxels along
+    # the finest axis (here `erosion_iterations` instead of the hardcoded 3).
+    mask_eroded = erode_anisotropic(
         mask,
-        iterations=erosion_iterations,
+        spacing,
+        erosion_iterations * min(spacing),
     )
     inner_boundary = mask_eroded & ~ndi.binary_erosion(mask_eroded)
 
