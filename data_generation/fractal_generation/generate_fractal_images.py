@@ -177,8 +177,6 @@ def create_full_fractal_image(
                 alpha_gaussian_max=alpha_gaussian_max,
                 rng=rng,
                 scale_z=shape[1] / shape[0],
-                order=3,
-                mode="constant",
             )
         else:
             u = rigid_displacement_and_warp(
@@ -193,8 +191,6 @@ def create_full_fractal_image(
                 translation_max=translation_max,
                 rng=rng,
                 scale_z=shape[1] / shape[0],
-                order=3,
-                mode="constant",
             )
 
     else:

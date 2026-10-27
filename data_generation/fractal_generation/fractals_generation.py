@@ -11,7 +11,25 @@ import numpy as np
 
 
 class IFSFunction3D:
+    """
+    Iterated function system in 3D, generating a fractal point cloud.
+
+    Holds a set of affine maps x -> R x + T with selection probabilities.
+    Each iteration picks one map according to those probabilities and applies
+    it to the current point; the resulting trajectory of points is the
+    fractal, rasterized later by ``make_intensity_volume_zyx``.
+    """
+
     def __init__(self, prev_x, prev_y, prev_z, rng: np.random.Generator):
+        """
+        Initialize the IFS with a starting point and a random generator.
+
+        Args:
+            prev_x (float): x coordinate of the starting point.
+            prev_y (float): y coordinate of the starting point.
+            prev_z (float): z coordinate of the starting point.
+            rng (np.random.Generator): Random generator for reproducibility.
+        """
         # Previous position (x, y, z)
         self.prev_x, self.prev_y, self.prev_z = prev_x, prev_y, prev_z
         # IFS functions (each is a tuple (R, T) where R is 3x3 and T is 3x1)
@@ -30,13 +48,15 @@ class IFSFunction3D:
 
     def set_param(self, R, T, proba, **kwargs):
         """
-        Add a transformation with rotation matrix R and translation vector T.
+        Add a transformation x -> R x + T with selection probability proba.
 
-        Parameters:
-        - R: 3x3 rotation/scaling matrix
-        - T: 3x1 translation vector
-        - proba: probability weight for this transformation
-        - kwargs: optional weights to apply to the matrix/vector
+        Args:
+            R (np.ndarray): (3, 3) affine matrix (rotation/scaling).
+            T (np.ndarray): (3,) translation vector.
+            proba (float): Probability weight for this transformation;
+                cumulative across calls, so the proba values should sum to 1.
+            **kwargs: Optional weights weight_R and weight_T applied
+                to the matrix and the translation before storing.
         """
         # Apply weights if provided
         if "weight_R" in kwargs:
@@ -51,10 +71,14 @@ class IFSFunction3D:
 
     def calculate(self, nb_iterations):
         """
-        Perform the IFS iterations in 3D space.
+        Run the IFS iterations in 3D space, appending one point per iteration.
 
-        Parameters:
-        - nb_iteration: number of iterations to perform
+        Starting from the initial position, each iteration picks a map
+        according to the selection probabilities and applies it:
+        next = R @ current + T.
+
+        Args:
+            nb_iterations (int): Number of iterations to perform.
         """
         # Fix random seed for reproducibility
         rng = self.rng
@@ -92,6 +116,32 @@ class IFSFunction3D:
         pad_y,
         pad_z,
     ):
+        """
+        Rasterize the point cloud into a (z, y, x) intensity volume.
+
+        Each axis is scaled so the point cloud spans [pad, size - 1 - pad]
+        (leaving a border margin), points are rounded to voxel indices and
+        counted. Counts are log1p-compressed, then normalized to [0, 1] by
+        clipping at the 1st/99th percentiles of the nonzero voxels.
+
+        Args:
+            size_img_x (int): Size of the output volume along x.
+            size_img_y (int): Size of the output volume along y.
+            size_img_z (int): Size of the output volume along z.
+            pad_x (int): Margin in voxels left empty on each x edge.
+            pad_y (int): Margin in voxels left empty on each y edge.
+            pad_z (int): Margin in voxels left empty on each z edge.
+
+        Returns:
+            np.ndarray: (size_img_z, size_img_y, size_img_x) float32 volume
+            with values in [0, 1].
+        """
+        assert (
+            size_img_x > 2 * pad_x and size_img_y > 2 * pad_y and size_img_z > 2 * pad_z
+        ), (
+            "Size must be strictly greater than 2 * pad on each axis, check config file !"
+        )
+
         xs = np.asarray(self.xs, dtype=np.float64)
         ys = np.asarray(self.ys, dtype=np.float64)
         zs = np.asarray(self.zs, dtype=np.float64)

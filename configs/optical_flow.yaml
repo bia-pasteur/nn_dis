@@ -33,7 +33,7 @@ optical_flow:
     flags: 0
 
   tvl1:
-    attachment: 25
+    attachment: 15
     tightness: 0.6
     num_warp: 5 
     num_iter: 150
@@ -41,7 +41,7 @@ optical_flow:
     prefilter: False
 
   ilk:
-    radius: 4
+    radius: 5
     num_warp: 7 
     gaussian: True 
     prefilter: True 

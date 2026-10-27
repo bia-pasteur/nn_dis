@@ -6,6 +6,17 @@ from data_generation.fractal_generation.fractals_generation import IFSFunction3D
 
 
 def random_orthogonal_matrix(rng):
+    """
+    Build a random 3x3 orthogonal matrix.
+
+    Uses the QR decomposition of a standard normal matrix.
+
+    Args:
+        rng (np.random.Generator): Random generator for reproducibility.
+
+    Returns:
+        np.ndarray: (3, 3) orthogonal matrix.
+    """
     Q, R = np.linalg.qr(rng.normal(size=(3, 3)))
 
     signs = np.sign(np.diag(R))
@@ -20,6 +31,24 @@ def random_affine_matrix(
     min_singular_value: float,
     max_singular_value: float,
 ):
+    """
+    Build a random affine matrix with controlled singular values.
+
+    A = U S V^T, where U and V are random orthogonal matrices and S holds
+    singular values drawn uniformly from [min_singular_value, max_singular_value].
+
+    Args:
+        rng (np.random.Generator):Random generator for reproducibility.
+        min_singular_value (float): Lower bound for the singular values.
+        max_singular_value (float): Upper bound for the singular values.
+
+    Returns:
+        np.ndarray: (3, 3) affine matrix.
+    """
+    assert 0 < min_singular_value <= max_singular_value < 1, (
+        "Singular values must satisfy 0 < min <= max < 1 so the IFS map is "
+        "contractive; check config file !"
+    )
 
     U = random_orthogonal_matrix(rng)
     V = random_orthogonal_matrix(rng)
@@ -45,13 +74,15 @@ def add_random_affine_ifs(
     translation_scale: float,
 ):
     """
-    Add random affine transformations to the IFS.
+    Add n_functions random affine maps to the IFS, with equal probability.
 
-    Each transform is:
-
-        x -> A x + T
-
-    with singular values of A constrained to be < 1.
+    Args:
+        ifs (IFSFunction3D): IFS object to add the maps to.
+        rng (np.random.Generator): Random generator for reproducibility.
+        n_functions (int): Number of affine maps to add.
+        min_singular_value (float): Lower bound for each map's singular values.
+        max_singular_value (float): Upper bound for each map's singular values.
+        translation_scale (float): Scale of the uniform translation range.
     """
 
     for _ in range(n_functions):
@@ -84,6 +115,31 @@ def generate_fractal_image(
     pad_z: int,
     nb_iterations: int,
 ):
+    """
+    Generate a 3D fractal image as an intensity volume.
+
+    Builds an IFS of random affine maps see add_random_affine_ifs,
+    iterates it to produce a point cloud, then rasterizes the points into a
+    (z, y, x) volume.
+
+    Args:
+        rng (np.random.Generator): Random generator for reproducibility.
+        n_functions (int): Number of affine maps in the IFS; each is applied
+            with probability 1/n_functions per iteration.
+        min_singular_value (float): Lower bound for each map's singular values.
+        max_singular_value (float): Upper bound for each map's singular values.
+        translation_scale (float): Scale of the uniform translation range of each map.
+        size_img_x (int): Size of the output volume along x.
+        size_img_y (int): Size of the output volume along y.
+        size_img_z (int): Size of the output volume along z.
+        pad_x (int): Margin in voxels left empty on each x edge.
+        pad_y (int): Margin in voxels left empty on each y edge.
+        pad_z (int): Margin in voxels left empty on each z edge.
+        nb_iterations (int): Number of IFS iterations.
+
+    Returns:
+        np.ndarray: (size_img_z, size_img_y, size_img_x) fractal image.
+    """
     ifs = IFSFunction3D(
         prev_x=0.0,
         prev_y=0.0,
@@ -116,7 +172,17 @@ def generate_fractal_image(
 
 def rotation_matrix(alpha: float, beta: float, gamma: float) -> np.ndarray:
     """
+    Build a 3D rotation matrix from Euler angles.
+
     R = Rz(alpha) @ Ry(beta) @ Rx(gamma)
+
+    Args:
+        alpha (float): Rotation angle around z (radians).
+        beta (float): Rotation angle around y (radians).
+        gamma (float): Rotation angle around x (radians).
+
+    Returns:
+        np.ndarray: (3, 3) rotation matrix.
     """
     return np.array(
         [
@@ -157,6 +223,25 @@ def rigid_displacement_and_warp(
     rng: np.random.Generator,
     scale_z: float = 1.0,
 ):
+    """
+    Create a displacement field as a random rigid transform.
+
+    Args:
+        image (np.ndarray): (nz, ny, nx) image.
+        alpha_min (float): Minimum rotation angle around z (degrees).
+        alpha_max (float): Maximum rotation angle around z (degrees).
+        beta_min (float): Minimum rotation angle around y (degrees).
+        beta_max (float): Maximum rotation angle around y (degrees).
+        gamma_min (float): Minimum rotation angle around x (degrees).
+        gamma_max (float): Maximum rotation angle around x (degrees).
+        translation_min (float): Minimum translation per axis (voxels).
+        translation_max (float): Maximum translation per axis (voxels).
+        rng (np.random.Generator): Random generator for reproducibility.
+        scale_z (float, optional): Physical size of a z voxel relative to an x/y voxel. Defaults to 1.0.
+
+    Returns:
+        np.ndarray: (3, nz, ny, nx) displacement field (uz, uy, ux), in voxels.
+    """
     assert (
         alpha_min < alpha_max
         and beta_min < beta_max
@@ -224,6 +309,24 @@ def generate_pyvista_perlin_displacement(
     scale_z: float,
     rng: np.random.Generator,
 ):
+    """
+    Create a displacement field from Perlin noise.
+
+    One frequency per axis (z scaled by scale_z), three independent noise
+    fields (one per component) with random phases and amplitudes.
+
+    Args:
+        shape (list[int]): (nz, ny, nx) shape of the output field.
+        amplitude_min (float): Minimum displacement amplitude per component.
+        amplitude_max (float): Maximum displacement amplitude per component.
+        freq_min (float): Minimum noise frequency.
+        freq_max (float): Maximum noise frequency.
+        scale_z (float): Physical size of a z voxel relative to an x/y voxel.
+        rng (np.random.Generator): Random generator for reproducibility.
+
+    Returns:
+        np.ndarray: (3, nz, ny, nx) displacement field (uz, uy, ux), in voxels.
+    """
     assert amplitude_min < amplitude_max and freq_min < freq_max, (
         "Min values must be inferior to max values, check config file !"
     )
@@ -272,6 +375,24 @@ def generate_random_gaussian_displacement(
     scale_z: float,
     rng: np.random.Generator,
 ):
+    """
+    Create a displacement field from Gaussian-filtered noise.
+
+    White noise filtered with a Gaussian kernel of sigma, normalized to a max
+    absolute value of alpha; three independent fields, one per component.
+
+    Args:
+        shape (list[int]): (nz, ny, nx) shape of the output field.
+        sigma_min (float): Minimum Gaussian filter sigma.
+        sigma_max (float): Maximum Gaussian filter sigma.
+        alpha_min (float): Minimum max displacement magnitude per component.
+        alpha_max (float): Maximum max displacement magnitude per component.
+        scale_z (float): Physical size of a z voxel relative to an x/y voxel.
+        rng (np.random.Generator): Random generator for reproducibility.
+
+    Returns:
+        np.ndarray: (3, nz, ny, nx) displacement field (uz, uy, ux), in voxels.
+    """
     assert alpha_min < alpha_max and sigma_min < sigma_max, (
         "Min values must be inferior to max values, check config file !"
     )
@@ -318,6 +439,35 @@ def rigid_and_gaussian_warp(
     order: int = 3,
     mode: str = "reflect",
 ):
+    """
+    Create a displacement field combining a rigid and a Gaussian transform.
+
+    The two fields are computed independently and summed; see
+    rigid_displacement_and_warp and generate_random_gaussian_displacement.
+
+    Args:
+        image (np.ndarray): (nz, ny, nx) image.
+        rng (np.random.Generator): Random generator for reproducibility.
+        alpha_min (float): Rigid minimum rotation angle around z (degrees).
+        alpha_max (float): Rigid maximum rotation angle around z (degrees).
+        beta_min (float): Rigid minimum rotation angle around y (degrees).
+        beta_max (float): Rigid maximum rotation angle around y (degrees).
+        gamma_min (float): Rigid minimum rotation angle around x (degrees).
+        gamma_max (float): Rigid maximum rotation angle around x (degrees).
+        translation_min (float): Rigid minimum translation per axis (voxels).
+        translation_max (float): Rigid maximum translation per axis (voxels).
+        sigma_gaussian_min (float): Gaussian minimum filter sigma.
+        sigma_gaussian_max (float): Gaussian maximum filter sigma.
+        alpha_gaussian_min (float): Gaussian minimum max displacement magnitude.
+        alpha_gaussian_max (float): Gaussian maximum max displacement magnitude.
+        scale_z (float): Physical size of a z voxel relative to an x/y voxel.
+        order (int, optional): Unused (kept for API compatibility). Defaults to 3.
+        mode (str, optional): Unused (kept for API compatibility). Defaults to "reflect".
+
+    Returns:
+        np.ndarray: (3, nz, ny, nx) displacement field (uz, uy, ux), in voxels,
+        equal to rigid + Gaussian.
+    """
     shape = image.shape
 
     assert (
@@ -341,8 +491,6 @@ def rigid_and_gaussian_warp(
         translation_max=translation_max,
         rng=rng,
         scale_z=scale_z,
-        order=order,
-        mode=mode,
     )
 
     u_gaussian = generate_random_gaussian_displacement(

@@ -3,13 +3,17 @@
 # pylint: disable=line-too-long
 # pylint: disable=trailing-whitespace
 
+import os
 import re
 import time
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import scipy.ndimage as ndi
+import torch
 
 from quantities_computation import (
     compute_normals_from_mask_3d,
@@ -23,13 +27,23 @@ from scripts.register import register
 
 
 def get_img_dis_model(
-    img_path, folder_path, model_type="aniso", default_spacing=[1.0, 0.13, 0.13]
+    img_path: Path,
+    folder_path: Path,
+    model_type: str = "aniso",
+    default_spacing: list[float] = [1.0, 0.13, 0.13],
 ):
+    if str(folder_path).endswith("16"):
+        model_type = "iso"
+        features = [16, 32, 32]
+    else:
+        model_type = "aniso"
+        features = [16, 32, 32, 64, 64]
     img, spacing, dis_model, warped_model = register(
         img_path=img_path,
         folder_path=folder_path,
         model_type=model_type,
         default_spacing=default_spacing,
+        features=features,
     )
     dis_model = np.transpose(dis_model, (1, 0, 2, 3, 4))
     mask = img[0] > 0.1
@@ -68,7 +82,10 @@ def _compute_mean_std_null_disp(results: dict) -> dict:
 
 
 def _initialize_results_image_gt(
-    u_gt: np.ndarray, mask: np.ndarray, mu: float, lambda_: float
+    u_gt: np.ndarray,
+    mask: np.ndarray,
+    mu: float,
+    lambda_: float,
 ) -> tuple[dict, tuple[float, float, float, float, float, np.ndarray], np.ndarray]:
     """
     Initialize the results dictionary with Ground-Truth values
@@ -171,11 +188,11 @@ def _update_results_method(
     traction_of = compute_traction_3d(stress_of[:, :, 0], -normals)
     rmse_traction = rmse(traction_of, results_im["traction"]["gt"]) / norm_traction
 
-    results_im["flows"][method_name] = h
-    results_im["strain"][method_name] = strain_of
-    results_im["deformation"][method_name] = def_of
-    results_im["stress"][method_name] = stress_of
-    results_im["traction"][method_name] = traction_of
+    # results_im["flows"][method_name] = h
+    # results_im["strain"][method_name] = strain_of
+    # results_im["deformation"][method_name] = def_of
+    # results_im["stress"][method_name] = stress_of
+    # results_im["traction"][method_name] = traction_of
     results_im["runtime"][method_name] = time_method if time_method is not None else 0
 
     results_im["rmse_flows"][method_name] = rmse_flow
@@ -359,6 +376,131 @@ def _normalize_model_folders(
     return models
 
 
+def _process_image(
+    path_img: Path,
+    model_folders: dict[str, Path],
+    of_functions: list[str],
+    path_of_results: Path,
+    folder_img_ugt: Path,
+    noise_stds: np.ndarray | None,
+    folder_mask_img: str | Path | None,
+    of_runtimes: dict[str, float],
+) -> dict:
+    """
+    Compute all the results for a single image (the body of the loop of
+    `compute_of_strain_traction`), so images can be processed in parallel.
+
+    Args: same as the corresponding arguments of `compute_of_strain_traction`,
+          for a single image `path_img`.
+
+    Returns:
+        dict: The results dictionary for this image.
+    """
+    # Several images are processed at once, so give each worker process an
+    # equal share of the cores instead of letting torch use all of them.
+    torch.set_num_threads(max(1, os.cpu_count() // 2))
+    filename = path_img.name
+
+    match = re.search(r"E_([\d.]+)_nu_([\d.]+)", filename)
+    if not match:
+        raise ValueError(f"Cannot find E and nu in filename: {filename}")
+
+    E = float(match.group(1))
+    nu = float(match.group(2))
+    lambda_ = E * nu / ((1.0 + nu) * (1.0 - (2 * nu)))
+    mu = E / (2.0 * (1.0 + nu))
+
+    noise_index = None
+    if noise_stds is not None:
+        match_noise = re.search(r"_noise_(\d+)_img\.(npy|tiff|tif)$", filename)
+        if not match_noise:
+            raise ValueError(f"Cannot find the noise level in filename: {filename}")
+        noise_index = int(match_noise.group(1))
+        if not 1 <= noise_index <= len(noise_stds):
+            raise ValueError(
+                f"Noise index {noise_index} out of range for {len(noise_stds)} "
+                f"noise stds: {filename}"
+            )
+
+    results_im = None
+    norms_normals_gt = None
+    mask_ref = None
+
+    for model_name, model_folder in model_folders.items():
+        start_time = time.time()
+        img, spacing, mask, h_model, warped_model, h_model_masked = get_img_dis_model(
+            path_img, model_folder
+        )
+        time_model = time.time() - start_time
+
+        if results_im is None:
+            mask_ref = mask
+
+            if noise_stds is not None:
+                if folder_mask_img is None:
+                    raise ValueError()
+                img_clean, _ = get_img_spacing(
+                    path_img=Path(folder_mask_img) / re.sub(r"_noise_\d+", "", filename)
+                )
+                mask_ref = img_clean[0] > 0.1
+
+            ugt_name = _get_ugt_name(filename, noisy=noise_stds is not None)
+            ugt_raw = np.load(folder_img_ugt / ugt_name)
+
+            ugt_pixels = np.stack([ugt_raw[i] for i in range(3)])
+
+            sy = 128 / ugt_pixels[1, 0].shape[1]
+            sx = 128 / ugt_pixels[2, 0].shape[2]
+            ugt_pixels[1] *= sy
+            ugt_pixels[2] *= sx
+
+            disp_gt = np.stack([reshape_img(ugt_pixels[i, 0], 32) for i in range(3)])
+
+            results_im, norms_normals_gt = _initialize_results_image_gt(
+                disp_gt[:, np.newaxis] * mask, mask, mu, lambda_
+            )
+
+        results_im["image"] = img
+        results_im["mask"] = mask
+        results_im["spacing"] = spacing
+        results_im["filename"] = filename
+        results_im["E"] = E
+        results_im["nu"] = nu
+        if noise_index is not None:
+            results_im["noise_index"] = noise_index
+            results_im["noise_std"] = float(noise_stds[noise_index - 1])
+
+        results_im = _update_results_method(
+            results_im=results_im,
+            method_name=model_name,
+            h=h_model,
+            mask=mask_ref,
+            time_method=time_model,
+            mu=mu,
+            lambda_=lambda_,
+            norms_normals_gt=norms_normals_gt,
+        )
+
+    for method in of_functions:
+        h = np.load(path_of_results / f"flow_{method}_{filename}")
+
+        if method == "fista":
+            h = np.stack([h[i] / spacing[i] for i in range(h.shape[0])])
+
+        results_im = _update_results_method(
+            results_im=results_im,
+            method_name=method,
+            h=h,
+            mask=mask_ref,
+            time_method=of_runtimes[method],
+            mu=mu,
+            lambda_=lambda_,
+            norms_normals_gt=norms_normals_gt,
+        )
+
+    return results_im
+
+
 def compute_of_strain_traction(
     folder_img_ugt: str | Path,
     of_functions: list[str],
@@ -408,117 +550,29 @@ def compute_of_strain_traction(
         raise ValueError("`results_folders` must contain at least one model folder.")
 
     results = {}
-    nb = 0
     of_runtimes = _load_of_runtimes(path_of_results)
 
-    for path_img in sorted(folder_img_ugt.iterdir()):
-        print(nb)
-        filename = path_img.name
-        if not filename.endswith(("img.npy", "img.tiff", "img.tif")):
-            continue
+    image_paths = sorted(
+        p
+        for p in folder_img_ugt.iterdir()
+        if p.name.endswith(("img.npy", "img.tiff", "img.tif"))
+    )
 
-        match = re.search(r"E_([\d.]+)_nu_([\d.]+)", filename)
-        if not match:
-            raise ValueError(f"Cannot find E and nu in filename: {filename}")
+    worker = partial(
+        _process_image,
+        model_folders=model_folders,
+        of_functions=of_functions,
+        path_of_results=path_of_results,
+        folder_img_ugt=folder_img_ugt,
+        noise_stds=noise_stds,
+        folder_mask_img=folder_mask_img,
+        of_runtimes=of_runtimes,
+    )
 
-        E = float(match.group(1))
-        nu = float(match.group(2))
-        lambda_ = E * nu / ((1.0 + nu) * (1.0 - (2 * nu)))
-        mu = E / (2.0 * (1.0 + nu))
-
-        noise_index = None
-        if noise_stds is not None:
-            match_noise = re.search(r"_noise_(\d+)_img\.(npy|tiff|tif)$", filename)
-            if not match_noise:
-                raise ValueError(f"Cannot find the noise level in filename: {filename}")
-            noise_index = int(match_noise.group(1))
-            if not 1 <= noise_index <= len(noise_stds):
-                raise ValueError(
-                    f"Noise index {noise_index} out of range for {len(noise_stds)} "
-                    f"noise stds: {filename}"
-                )
-
-        results_im = None
-        norms_normals_gt = None
-        mask_ref = None
-
-        for model_name, model_folder in model_folders.items():
-            start_time = time.time()
-            img, spacing, mask, h_model, warped_model, h_model_masked = (
-                get_img_dis_model(path_img, model_folder)
-            )
-            time_model = time.time() - start_time
-
-            if results_im is None:
-                mask_ref = mask
-
-                if noise_stds is not None:
-                    if folder_mask_img is None:
-                        raise ValueError()
-                    img_clean, _ = get_img_spacing(
-                        path_img=Path(folder_mask_img)
-                        / re.sub(r"_noise_\d+", "", filename)
-                    )
-                    mask_ref = img_clean[0] > 0.1
-
-                ugt_name = _get_ugt_name(filename, noisy=noise_stds is not None)
-                ugt_raw = np.load(folder_img_ugt / ugt_name)
-
-                ugt_pixels = np.stack([ugt_raw[i] for i in range(3)])
-
-                sy = 128 / ugt_pixels[1, 0].shape[1]
-                sx = 128 / ugt_pixels[2, 0].shape[2]
-                ugt_pixels[1] *= sy
-                ugt_pixels[2] *= sx
-
-                disp_gt = np.stack(
-                    [reshape_img(ugt_pixels[i, 0], 32) for i in range(3)]
-                )
-
-                results_im, norms_normals_gt = _initialize_results_image_gt(
-                    disp_gt[:, np.newaxis] * mask, mask, mu, lambda_
-                )
-
-            results_im["image"] = img
-            results_im["mask"] = mask
-            results_im["spacing"] = spacing
-            results_im["filename"] = filename
-            results_im["E"] = E
-            results_im["nu"] = nu
-            if noise_index is not None:
-                results_im["noise_index"] = noise_index
-                results_im["noise_std"] = float(noise_stds[noise_index - 1])
-
-            results_im = _update_results_method(
-                results_im=results_im,
-                method_name=model_name,
-                h=h_model,
-                mask=mask_ref,
-                time_method=time_model,
-                mu=mu,
-                lambda_=lambda_,
-                norms_normals_gt=norms_normals_gt,
-            )
-
-        for method in of_functions:
-            h = np.load(path_of_results / f"flow_{method}_{filename}")
-
-            if method == "fista":
-                h = np.stack([h[i] / spacing[i] for i in range(h.shape[0])])
-
-            results_im = _update_results_method(
-                results_im=results_im,
-                method_name=method,
-                h=h,
-                mask=mask_ref,
-                time_method=of_runtimes[method],
-                mu=mu,
-                lambda_=lambda_,
-                norms_normals_gt=norms_normals_gt,
-            )
-
-        results[nb] = results_im
-        nb += 1
+    with ProcessPoolExecutor(max_workers=2) as executor:
+        for nb, results_im in enumerate(executor.map(worker, image_paths)):
+            print(nb)
+            results[nb] = results_im
 
     for key in [
         "mean_rmse_disp",
