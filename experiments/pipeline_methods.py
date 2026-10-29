@@ -558,6 +558,7 @@ def compute_of_strain_traction(
     noise_stds: np.ndarray | None = None,
     folder_mask_img: str | Path | None = None,
     save_fields: bool = False,
+    max_workers: int = 4,
 ) -> dict:
     """
     Get Ground-Truth and compute model-based and optical-flow-based displacement, strain,
@@ -565,32 +566,32 @@ def compute_of_strain_traction(
     Compute average values and their stds for every measured quantity.
 
     Args:
-        folder_img_ugt (str | Path): Folder containing the images (*_img.npy / .tif) and
-                                     the GT displacements (*_ugt.npy). If `noise_stds`
-                                     is given, the images are noisy versions named
-                                     *_noise_XX_img.npy sharing one *_ugt.npy file per
-                                     base image.
-        of_functions (list[str]): Names of the optical flow methods whose results are stored
-                                  in `path_of_results` as `flow_<method>_<filename>`.
+        folder_img_ugt (str | Path): Folder containing the images and the GT displacements.
+                                     If noise_stds is given, the images are noisy versions named
+                                     sharing one GT file perbase image.
+        of_functions (list[str]): Names of the optical flow methods whose results we want
+                                  to add in the comparison.
         results_folders (list | dict): Folders containing the trained models.
-            - list: model names are derived from folder names ("model_<folder_name>").
+            - list: model names are derived from folder names.
             - dict: {model_name: folder_path}.
-        path_of_results (str | Path): Folder containing the optical flow results and
-                                      "average_optical_flow_times.csv".
+        path_of_results (str | Path): Folder containing the optical flow results and average run time per method.
         noise_stds (np.ndarray | None): Std of the noise of each image, indexed by the
-                                        "noise_XX" suffix (XX - 1). If None, the images
-                                        are assumed noiseless. Defaults to None.
+                                        "noise_XX". If None, the images are assumed noiseless.
+                                        Defaults to None.
         folder_mask_img (str | Path | None): Folder containing the clean images, required
-                                             when `noise_stds` is given: the mask is
-                                             derived from the clean image (noise on the
-                                             background would inflate `img[0] > 0.1`).
-                                             Defaults to None.
+                                             when noise_stds is given: the mask is  derived from
+                                             the clean image. Defaults to None.
+        save_fields (bool, optional): Whether we want to save the displacmeent, strain, stress and
+                            traction fields in the final dictionary. Defaults to False.
+        max_workers (int, optional): Maximum number of parallel worker processes used to process the
+                           images, one image per worker. Defaults to 4.
 
     Returns:
-        dict: Dictionary containing, for each image index, the GT and estimated fields
-              for every model and OF method, plus the mean/std RMSE of every quantity.
-              When `noise_stds` is given, also the mean/std RMSE of every quantity
-              for each noise level ("mean_rmse_<metric>_vs_noise").
+        dict: Dictionary containing, for each image index, the mean/std RMSE of every mechanical
+              quantity in the study.
+              If save_fields is True, the GT and computed fields are also saved in the dictionary.
+              When noise_stds is given, the mean/std RMSE of every quantity for each noise level is
+              added to the dictionary.
     """
     folder_img_ugt = Path(folder_img_ugt)
     path_of_results = Path(path_of_results)
@@ -620,9 +621,10 @@ def compute_of_strain_traction(
         save_fields=save_fields,
     )
 
-    with ProcessPoolExecutor(max_workers=2) as executor:
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
         for nb, results_im in enumerate(executor.map(worker, image_paths)):
-            print(nb)
+            if nb % 10 == 0:
+                print(f"{nb} images processed")
             results[nb] = results_im
 
     for key in [

@@ -412,11 +412,11 @@ def save_rmse_vs_noise(
                 zorder=3,
             )
 
-        ax.set_title(
-            f"{labels.get(m, m)} (robustness study)",
-            fontsize=19,
-            pad=12,
-        )
+        # ax.set_title(
+        #     f"{labels.get(m, m)} (robustness study)",
+        #     fontsize=19,
+        #     pad=12,
+        # )
 
         ax.set_xlabel("Noise standard deviation", fontsize=17)
         ax.set_ylabel(f"{labels.get(m, m)} NRMSE", fontsize=17)
@@ -523,6 +523,7 @@ def get_visu_img(
 
 def show_dis(
     img: np.ndarray,
+    img_clean: np.ndarray,
     flow: np.ndarray,
     name: str,
     arrow_factor: int,
@@ -549,7 +550,7 @@ def show_dis(
         colorbar (bool, optional): Whether to display to colorbars for each quantity. Defaults to False.
     """
     image = img[0]
-    mask = image > 0.1
+    mask = img_clean > 0.1
 
     # Define spacing ((x, y, z) for pyvista)
     spacing = np.array([1.0, 1.0, z_size])
