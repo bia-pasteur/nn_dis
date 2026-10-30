@@ -412,12 +412,6 @@ def save_rmse_vs_noise(
                 zorder=3,
             )
 
-        # ax.set_title(
-        #     f"{labels.get(m, m)} (robustness study)",
-        #     fontsize=19,
-        #     pad=12,
-        # )
-
         ax.set_xlabel("Noise standard deviation", fontsize=17)
         ax.set_ylabel(f"{labels.get(m, m)} NRMSE", fontsize=17)
         ax.grid(True, alpha=0.3)
@@ -448,6 +442,136 @@ def save_rmse_vs_noise(
     results_dir.mkdir(parents=True, exist_ok=True)
 
     filename = f"rmse_{'_'.join(metrics)}_vs_noise.png"
+    fig.savefig(
+        results_dir / filename,
+        dpi=300,
+        bbox_inches="tight",
+    )
+
+    if display:
+        plt.show()
+    plt.close(fig)
+
+
+def save_rmse_vs_train_size(
+    results: dict,
+    results_dir: str | Path,
+    methods: list[tuple[str, str]],
+    train_sizes: dict[str, float],
+    metric: str | list[str] = "disp",
+    display: bool = False,
+) -> None:
+    """
+    Plot mean RMSE versus training dataset size for one or more metrics.
+
+    Each metric is plotted in a separate subplot, with a single shared legend,
+    one curve per training (method).
+
+    Args:
+        results: Results dictionary containing the "mean_rmse_<metric>" keys,
+            as returned by `compute_of_strain_traction` on the trained models.
+        results_dir: Directory where the PNG figure will be saved.
+        methods: (display name, results key) pairs of trainings to plot.
+        train_sizes: Mapping from results key to the number of training images
+            of the corresponding training. Every method key must be present.
+        metric: Metric or list of metrics to plot: "disp", "strain", "def",
+            "stress", or "traction". Defaults to "disp".
+        display: Whether to display the figure. Defaults to False.
+    """
+    metrics = [metric] if isinstance(metric, str) else list(metric)
+    if not metrics:
+        raise ValueError("'metric' must contain at least one metric.")
+
+    required_keys = [f"mean_rmse_{m}" for m in metrics]
+    for key in required_keys:
+        if key not in results:
+            raise ValueError(
+                f"'{key}' not found in results: compute the results with "
+                "`compute_of_strain_traction(...)` first."
+            )
+
+    missing_sizes = [
+        method_key for _, method_key in methods if method_key not in train_sizes
+    ]
+    if missing_sizes:
+        raise ValueError(
+            f"No training size given for: {missing_sizes}. "
+            "Provide every method key in 'train_sizes'."
+        )
+
+    labels = {
+        "disp": "Displacement",
+        "strain": "Strain",
+        "def": "Deformation",
+        "stress": "Stress",
+        "traction": "Traction",
+    }
+
+    n_metrics = len(metrics)
+    fig, axes = plt.subplots(
+        1,
+        n_metrics,
+        figsize=(7 * n_metrics, 7),
+        squeeze=False,
+    )
+
+    colors = plt.get_cmap("tab10")
+    markers = ["o", "s", "^", "D", "v", "P", "X"]
+
+    for ax, m in zip(axes.flat, metrics):
+        mean_key = f"mean_rmse_{m}"
+
+        # Sort the methods by training size so the curves are drawn in order.
+        sorted_methods = sorted(methods, key=lambda item: train_sizes[item[1]])
+
+        for i, (name, method_key) in enumerate(sorted_methods):
+            x = train_sizes[method_key]
+            mean = results[mean_key][method_key]
+
+            ax.plot(
+                [x],
+                [mean],
+                color=colors(i % 10),
+                marker=markers[i % len(markers)],
+                markersize=7,
+                linewidth=2.0,
+                label=name,
+                zorder=3,
+            )
+
+        all_sizes = sorted(train_sizes[method_key] for _, method_key in methods)
+        ax.set_xticks(all_sizes)
+        ax.set_xticklabels(all_sizes)
+        ax.set_xlabel("Training dataset size (number of images)", fontsize=17)
+        ax.set_ylabel(f"{labels.get(m, m)} RMSE", fontsize=17)
+        ax.grid(True, which="both", alpha=0.3)
+        ax.set_axisbelow(True)
+
+    handles, legend_labels = axes[0, 0].get_legend_handles_labels()
+
+    fig.legend(
+        handles,
+        legend_labels,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.99),
+        ncol=len(handles),
+        fontsize=19,
+        frameon=True,
+        fancybox=True,
+        framealpha=1.0,
+        edgecolor="0.7",
+        facecolor="white",
+        borderpad=0.6,
+        columnspacing=2.0,
+        handletextpad=0.6,
+    )
+
+    fig.tight_layout(rect=(0, 0, 1, 0.85))
+
+    results_dir = Path(results_dir)
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = f"rmse_{'_'.join(metrics)}_vs_train_size.png"
     fig.savefig(
         results_dir / filename,
         dpi=300,
