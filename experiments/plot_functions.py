@@ -464,8 +464,8 @@ def save_rmse_vs_train_size(
     """
     Plot mean RMSE versus training dataset size for one or more metrics.
 
-    Each metric is plotted in a separate subplot, with a single shared legend,
-    one curve per training (method).
+    Each metric is plotted in a separate subplot, as a single curve connecting
+    the trainings sorted by training size.
 
     Args:
         results: Results dictionary containing the "mean_rmse_<metric>" keys,
@@ -515,29 +515,27 @@ def save_rmse_vs_train_size(
         squeeze=False,
     )
 
-    colors = plt.get_cmap("tab10")
-    markers = ["o", "s", "^", "D", "v", "P", "X"]
+    color = "blue"
+    marker = "o"
 
     for ax, m in zip(axes.flat, metrics):
         mean_key = f"mean_rmse_{m}"
 
-        # Sort the methods by training size so the curves are drawn in order.
+        # Sort the methods by training size so the curve is drawn in order.
         sorted_methods = sorted(methods, key=lambda item: train_sizes[item[1]])
 
-        for i, (name, method_key) in enumerate(sorted_methods):
-            x = train_sizes[method_key]
-            mean = results[mean_key][method_key]
+        xs = [train_sizes[method_key] for _, method_key in sorted_methods]
+        ys = [results[mean_key][method_key] for _, method_key in sorted_methods]
 
-            ax.plot(
-                [x],
-                [mean],
-                color=colors(i % 10),
-                marker=markers[i % len(markers)],
-                markersize=7,
-                linewidth=2.0,
-                label=name,
-                zorder=3,
-            )
+        ax.plot(
+            xs,
+            ys,
+            color=color,
+            marker=marker,
+            markersize=7,
+            linewidth=2.0,
+            zorder=3,
+        )
 
         all_sizes = sorted(train_sizes[method_key] for _, method_key in methods)
         ax.set_xticks(all_sizes)
@@ -546,25 +544,6 @@ def save_rmse_vs_train_size(
         ax.set_ylabel(f"{labels.get(m, m)} RMSE", fontsize=17)
         ax.grid(True, which="both", alpha=0.3)
         ax.set_axisbelow(True)
-
-    handles, legend_labels = axes[0, 0].get_legend_handles_labels()
-
-    fig.legend(
-        handles,
-        legend_labels,
-        loc="upper center",
-        bbox_to_anchor=(0.5, 0.99),
-        ncol=len(handles),
-        fontsize=19,
-        frameon=True,
-        fancybox=True,
-        framealpha=1.0,
-        edgecolor="0.7",
-        facecolor="white",
-        borderpad=0.6,
-        columnspacing=2.0,
-        handletextpad=0.6,
-    )
 
     fig.tight_layout(rect=(0, 0, 1, 0.85))
 

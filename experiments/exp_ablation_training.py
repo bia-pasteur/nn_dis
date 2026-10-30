@@ -29,10 +29,11 @@ METRICS = ["disp"]
 METHODS = [(name, name) for name in PATHS_TO_MODELS]
 
 SAVE_DIR_DICT = Path("/Users/josephinelahmani/Desktop/nn_dis/results/dict")
+SAVE_DIR = "/Users/josephinelahmani/Desktop/nn_dis/results/plots"
 RECOMPUTE = False
 SAVE_PATH_DICT = SAVE_DIR_DICT / "results_ablation_training.pkl"
 OUTPUT_CSV = SAVE_DIR_DICT / "rmse_ablation_training.csv"
-PLOTS_DIR = SAVE_DIR_DICT
+PLOTS_DIR = SAVE_DIR
 
 
 def plot(results_ablation: dict, metrics: list):
@@ -42,7 +43,7 @@ def plot(results_ablation: dict, metrics: list):
         methods=METHODS,
         train_sizes=TRAIN_SIZES,
         metric=metrics,
-        display=True,
+        display=False,
     )
 
 
@@ -68,11 +69,11 @@ if RECOMPUTE:
 
         save_rmse_vs_train_size(
             results=results_ablation,
-            results_dir=PLOTS_DIR,
+            results_dir=SAVE_DIR,
             methods=METHODS,
             train_sizes=TRAIN_SIZES,
             metric=METRICS,
-            display=True,
+            display=False,
         )
 
 else:
@@ -82,7 +83,14 @@ else:
             results_ablation = pickle.load(f)
 
         save_rmse_csv(results=results_ablation, output_path=OUTPUT_CSV)
-        plot(results_ablation, METRICS)
+        save_rmse_vs_train_size(
+            results=results_ablation,
+            results_dir=SAVE_DIR,
+            methods=METHODS,
+            train_sizes=TRAIN_SIZES,
+            metric=METRICS,
+            display=False,
+        )
 
 
 if __name__ == "__main__":
