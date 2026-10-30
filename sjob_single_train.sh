@@ -5,6 +5,22 @@
 
 JOB_NAME=nn_dis_mask
 
+# Derive the job name from the --config argument (e.g. train_config_4_ter.yaml -> nn_dis_4_ter)
+prev=""
+for a in $@; do
+    if [ "$prev" = "--config" ]; then
+        a=${a%.yaml}
+        STEM=$(basename $a | sed -E 's/^train_config_?//')
+        JOB_NAME="nn_dis${STEM:+_$STEM}"
+    fi
+    case $a in
+        --config=*) a=${a#--config=}; a=${a%.yaml};
+                    STEM=$(basename $a | sed -E 's/^train_config_?//')
+                    JOB_NAME="nn_dis${STEM:+_$STEM}";;
+    esac
+    prev=$a
+done
+
 DATETIME=$(date +"%y%m%d-%H%M%S")
 LOG_FILE="${DATETIME}_${JOB_NAME}"
 
