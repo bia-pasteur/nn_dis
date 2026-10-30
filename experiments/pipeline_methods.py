@@ -39,7 +39,7 @@ def get_img_dis_model(
     else:
         model_type = "aniso"
         features = [16, 32, 32, 64, 64]
-    img, spacing, dis_model, warped_model = register(
+    img, spacing, dis_model, warped_model, _ = register(
         img_path=img_path,
         folder_path=folder_path,
         model_type=model_type,
@@ -734,7 +734,7 @@ def compute_results_micro_im(
     Returns:
         dict: A dictionary containing the results associated with the image.
     """
-    img, spacing, h_model, _ = register(
+    img, spacing, h_model, _, model_runtime = register(
         img_path=img_path,
         folder_path=results_folder,
         model_type=model_type,
@@ -742,9 +742,19 @@ def compute_results_micro_im(
         default_spacing=default_spacing,
         crop=crop,
     )
+    # Inference only, comparable with the optical flow runtimes.
     h_model = np.transpose(h_model, (1, 0, 2, 3, 4))
 
     flows_folder = Path(flows_folder)
+
+    # Runtimes of the optical flow algorithms, as measured on this image if a
+    # per-image timing file exists, else as averaged over the saved batch.
+    runtime_file = flows_folder / f"time_methods_{Path(filename).stem}.csv"
+    if runtime_file.exists():
+        runtimes_df = pd.read_csv(runtime_file)
+        of_runtimes = dict(zip(runtimes_df["method"], runtimes_df["time_seconds"]))
+    else:
+        of_runtimes = _load_of_runtimes(flows_folder)
 
     flows = []
     model_names = []
@@ -785,6 +795,7 @@ def compute_results_micro_im(
         "def": [],
         "tractions": [],
         "model_names": model_names,
+        "runtime": {"Model": model_runtime},
     }
 
     for h in flows:
@@ -797,5 +808,9 @@ def compute_results_micro_im(
         results["flows"].append(h[:, 0])
         results["def"].append(deformation_field[0])
         results["tractions"].append(traction)
+
+    for algorithm in algo:
+        method_name = algorithm.upper()
+        results["runtime"][method_name] = of_runtimes.get(algorithm.lower())
 
     return results

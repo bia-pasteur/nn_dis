@@ -511,17 +511,16 @@ def save_rmse_vs_train_size(
     fig, axes = plt.subplots(
         1,
         n_metrics,
-        figsize=(7 * n_metrics, 7),
+        figsize=(5 * n_metrics, 4),
         squeeze=False,
     )
 
-    color = "blue"
+    color = plt.get_cmap("tab10")(0)
     marker = "o"
 
     for ax, m in zip(axes.flat, metrics):
         mean_key = f"mean_rmse_{m}"
 
-        # Sort the methods by training size so the curve is drawn in order.
         sorted_methods = sorted(methods, key=lambda item: train_sizes[item[1]])
 
         xs = [train_sizes[method_key] for _, method_key in sorted_methods]
@@ -540,8 +539,8 @@ def save_rmse_vs_train_size(
         all_sizes = sorted(train_sizes[method_key] for _, method_key in methods)
         ax.set_xticks(all_sizes)
         ax.set_xticklabels(all_sizes)
-        ax.set_xlabel("Training dataset size (number of images)", fontsize=17)
-        ax.set_ylabel(f"{labels.get(m, m)} RMSE", fontsize=17)
+        ax.set_xlabel("Training dataset size (number of images)", fontsize=10)
+        ax.set_ylabel(f"{labels.get(m, m)} NRMSE", fontsize=10)
         ax.grid(True, which="both", alpha=0.3)
         ax.set_axisbelow(True)
 
@@ -990,7 +989,6 @@ def show_dis_def_traction(
                     show_scalar_bar=False,
                 )
 
-            # One colorbar per row, using the first available actor.
             if colorbar and actor is not None and row not in colorbar_rows:
                 plotter.subplot(row, n + 1)
                 plotter.add_scalar_bar(
@@ -1008,13 +1006,11 @@ def show_dis_def_traction(
                 )
                 colorbar_rows.add(row)
 
-    # Set the camera from the first method's displacement panel.
     plotter.subplot(0, 1)
     plotter.view_isometric()
     plotter.camera.zoom(zoom)
     camera = plotter.camera
 
-    # Share the camera only among the 3D panels.
     for i in range(n):
         for row in range(3):
             plotter.subplot(row, i + 1)

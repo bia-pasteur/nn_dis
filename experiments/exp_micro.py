@@ -56,3 +56,7 @@ show_cells(
     display=False,
     zoom=1.3,
 )
+
+print("Runtimes:")
+for method, runtime in results_img_sudheer["runtime"].items():
+    print(f"  {method}: {runtime:.2f} s" if runtime is not None else f"  {method}: n/a")

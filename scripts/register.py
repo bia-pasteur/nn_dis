@@ -22,6 +22,7 @@ If you use this code, please cite the appropriate VoxelMorph papers.
 """
 
 import importlib
+import time
 from pathlib import Path
 
 import numpy as np
@@ -121,6 +122,8 @@ def register(
             - Tuple[float, float, float]: Voxel spacing (Z, Y, X)
             - torch.Tensor: Final displacement field tensor
             - np.ndarray: Warped moving image
+            - float: Inference time of the model forward pass, excluding
+              model loading and image preprocessing.
     """
     device = "cpu"  # "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -146,11 +149,14 @@ def register(
         torch.from_numpy(img[1]).unsqueeze(0).unsqueeze(0).to(device)
     )  # (1, 1, Z, H, W)
 
+    start_time = time.time()
     displacement, warped_moving = model(ref, moving, return_warped_moving=True)
+    inference_time = time.time() - start_time
 
     return (
         img,
         spacing,
         displacement.detach().numpy(),
         warped_moving.detach().numpy()[0, 0],
+        inference_time,
     )
