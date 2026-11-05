@@ -10,6 +10,9 @@
 
 ---
 
+<p align="center">
+  <img src="docs/figure_method_V1.pdf" width="600" alt="Description"/>
+</p>
 ## Overview
 
 The repository is divided into three main parts:
