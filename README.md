@@ -1,12 +1,12 @@
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-# 3DeepFlow: learning-based optical flow for 3D biological images.
+# 3DeepFlow: learning-based optical flow for 3D biological images
 
 ## Table of Contents
 - [Overview](#overview)
 - [3DeeFlow](#3deepflow)
-- [Synthetic Elastic Cell Generation](#synthetic-elastic-cell-generation)
+- [Synthetic Elastic Cell Images ](#synthetic-elastic-cell-images)
 
 ---
 
@@ -122,7 +122,7 @@ python -m experiment.exp_micro
 
 ---
 
-## Synthetic Elastic Cell Generation
+## Synthetic Elastic Cell Images
 
 Create a separate conda environment: 
 
