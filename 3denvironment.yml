@@ -1,0 +1,17 @@
+name: 3d-data
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - fenics-dolfinx
+  - jsonargparse
+  - scipy
+  - scikit-image
+  - numba
+  - gmsh
+  - python-gmsh
+  - pyvista
+  - imagecodecs
+prefix: /home/josephine/micromamba/envs/3d-data

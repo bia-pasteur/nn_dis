@@ -19,20 +19,6 @@ The repository is divided into three main parts:
 
 **2. Elastic cell generation** - Generates synthetic 3D images of deformed elastic cells using FEniCSx (finite element simulation).
 
-<p align="center">
-  <img src="docs/figure_method_V2.png" width="600" alt="Description"/>
-</p>
-
----
-
-## Installation
-
-Start by cloning the repository:
-
-```bash
-git clone git@github.com/bia-pasteur/nn_dis.git
-```
-
 ---
 
 ## 3DeepFlow
@@ -40,7 +26,7 @@ git clone git@github.com/bia-pasteur/nn_dis.git
 Create a conda environment
 
 ```bash
-conda env create -f environment.yml
+micromamba env create -f environment.yml
 ```
 
 ### Fractal Generation
@@ -138,6 +124,19 @@ python -m experiment.exp_micro
 Create a separate conda environment: 
 
 ```bash
-conda env create -f environment_fenics.yml
+micromamba env create -f 3denvironment.yml
 ```
 
+### Generate 3D elastic cell images 
+
+Elastic cell images are created using 
+
+```bash
+python -m data_generation.cells.generate_3d_elastic_dataset --config=configs/three_dims_params.yaml
+```
+
+Parameters are defined in `configs/three_dims_params.yaml`
+
+> [!NOTE]
+> This experiment relies on synthetic cell images from the cell tracking challenge (dataset Fluo-C3DH-A549-SIM).
+> You need to download the dataset and input the correct path.

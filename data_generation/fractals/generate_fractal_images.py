@@ -5,7 +5,7 @@ import numpy as np
 from scipy.interpolate import griddata
 
 from config import FractalParams
-from data_generation.fractal_generation.utils_fractals import (
+from data_generation.fractals.utils_fractals import (
     generate_fractal_image,
     generate_pyvista_perlin_displacement,
     generate_random_gaussian_displacement,
