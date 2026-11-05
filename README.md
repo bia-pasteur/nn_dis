@@ -19,7 +19,7 @@ The repository is divided into three main parts:
 **2. Synthetic elastic cell generation** - Generates synthetic 3D images of deformed elastic cells using FEniCSx (finite element simulation).
 
 <p align="center">
-  <img src="docs/figure_method_V1.png" width="600" alt="Description"/>
+  <img src="docs/figure_method_V1.png" width="1000" alt="Description"/>
 </p>
 
 ---
