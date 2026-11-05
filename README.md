@@ -10,10 +10,6 @@
 
 ---
 
-<p align="center">
-  <img src="docs/figure_method_V1.png" width="600" alt="Description"/>
-</p>
-
 ## Overview
 
 The repository is divided into three main parts:
@@ -21,6 +17,10 @@ The repository is divided into three main parts:
 **1. 3DeepFlow** — Learning-based optical flow method for 3D anisotropic biological images. It is trained on synthetic fractal images. 
 
 **2. Synthetic elastic cell generation** - Generates synthetic 3D images of deformed elastic cells using FEniCSx (finite element simulation).
+
+<p align="center">
+  <img src="docs/figure_method_V1.png" width="600" alt="Description"/>
+</p>
 
 ---
 
