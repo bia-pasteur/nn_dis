@@ -5,9 +5,8 @@
 
 ## Table of Contents
 - [Overview](#overview)
-- [Installation](#installation)
 - [3DeeFlow](#3deepflow)
-- [Synthetic elastic Cell Generation](#cell-generation)
+- [Synthetic Elastic Cell Generation](#synthetic-elastic-cell-generation)
 
 ---
 
@@ -17,7 +16,7 @@ The repository is divided into three main parts:
 
 **1. 3DeepFlow** — Learning-based optical flow method for 3D anisotropic biological images. It is trained on synthetic fractal images. 
 
-**2. Elastic cell generation** - Generates synthetic 3D images of deformed elastic cells using FEniCSx (finite element simulation).
+**2. Synthetic elastic cell generation** - Generates synthetic 3D images of deformed elastic cells using FEniCSx (finite element simulation).
 
 ---
 
@@ -119,7 +118,7 @@ python -m experiment.exp_micro
 
 ---
 
-## Synthetic elastic cell generation
+## Synthetic Elastic Cell Generation
 
 Create a separate conda environment: 
 
