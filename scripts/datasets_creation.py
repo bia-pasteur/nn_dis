@@ -24,6 +24,15 @@ from config import DatasetCreation
 
 
 def load_order_clean(image_path: str):
+    """
+    Load an image, its name and the physical sizes of the voxels.
+
+    Args:
+        image_path (str): Path to the image.
+
+    Returns:
+        tuple[np.ndarray, str, tuple[float, float, float]]: Image, name of the image, physical voxel sizes.
+    """
     # Store the name of the image for the plots
     image_name = os.path.basename(image_path)
     image_name_without_ext = os.path.splitext(image_name)[0]

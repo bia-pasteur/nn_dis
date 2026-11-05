@@ -1,12 +1,7 @@
 """
-Created on Sat Aug 05 23:55:12 2017
-
-@author: Kazushige Okayasu, Hirokatsu Kataoka
+Inspired by @authors: Kazushige Okayasu, Hirokatsu Kataoka
 """
 
-import matplotlib
-
-matplotlib.use("Agg")  # useful if running without GUI/server
 import numpy as np
 
 

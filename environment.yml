@@ -1,0 +1,19 @@
+name: nn-dis
+channels:
+  - https://repo.anaconda.com/pkgs/main
+  - https://repo.anaconda.com/pkgs/r
+  - conda-forge
+dependencies:
+  - numpy
+  - python=3.12
+  - pandas
+  - scipy
+  - matplotlib
+  - pathlib
+  - pyvista
+  - napari
+  - pytorch::pytorch
+  - bioio
+  - jsonargparse
+  - pip
+prefix: /opt/anaconda3/envs/nn-dis

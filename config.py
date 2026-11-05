@@ -40,6 +40,26 @@ class FractalParams:
 
 
 @dataclass
+class ThreeDimsSimuParams:
+    """Parameters for the elastic cell simulation"""
+
+    img_paths: list[str]
+    masks_paths: list[str]
+    spacing: tuple[float, float, float]
+    t_end: int
+    num_time_steps: int
+    eta: float
+    ym_for_nu: float
+    nu_for_ym: float
+    range_traction: tuple[float, float]
+    youngs_modulus: list[float]
+    nu: list[float]
+    nb_zones_list: list[int]
+    nb_seeds: int
+    save_path: str
+
+
+@dataclass
 class NoiseParams:
     """Parameters for noisy image generation"""
 
@@ -53,13 +73,7 @@ class NoiseParams:
 
 @dataclass
 class SubsetParams:
-    """Parameters for creating dataset-size ablation subsets
-
-    Creates `train_size_N` folders (nested subsets: size k images are the first
-    k of the seeded permutation, so subsets nest) with relative symlinks to the
-    source images. The ground-truth folder is shared, since `get_ugt` looks
-    files up by name.
-    """
+    """Parameters for creating dataset-size ablation subsets"""
 
     dataset_root: str
     source_folder: str = "train"
@@ -100,20 +114,10 @@ class TrainConfig:
     gt_decay: bool | None = False
     gt_decay_start_epoch: int | None = None
     gt_decay_end_epoch: int | None = None
-    gt_decay_final: float | None = 0.0
     seed: int = 42
     channel: int | None = None
     mask: bool = False
-    combine: bool = False
     path_gt: str | None = None
-    train_data_rigid: str | None = None
-    val_data_rigid: str | None = None
-    path_gt_rigid: str | None = None
-    train_data_rigid_gaussian: str | None = None
-    val_data_rigid_gaussian: str | None = None
-    path_gt_rigid_gaussian: str | None = None
-    finetune_lr: float | None = None
-    finetune_epochs: int | None = None
 
 
 @dataclass
@@ -190,6 +194,67 @@ class OpticalFlowParams:
     farneback: FarnebackParams
     tvl1: TVL1Params
     ilk: ILKParams
+
+
+@dataclass
+class FistaParamsList:
+    """FISTA parameters (list-valued fields generate a grid of combinations)"""
+
+    num_iter: list[int]
+    num_warp: list[int]
+    alpha: list[float]
+    beta: list[float]
+    eps: float
+    num_pyramid: int
+    pyramid_downscale: float
+    pyramid_min_size: int
+
+
+@dataclass
+class HSParamsList:
+    """Horn-Schunck parameters (list-valued fields generate a grid of combinations)"""
+
+    num_iter: list[int]
+    num_warp: list[int]
+    alpha: list[float]
+    eps: float
+    num_pyramid: int
+    pyramid_downscale: float
+    pyramid_min_size: int
+    w: float
+
+
+@dataclass
+class TVL1ParamsList:
+    """TV-L1 parameters (list-valued fields generate a grid of combinations)"""
+
+    attachment: list[float]
+    tightness: list[float]
+    num_warp: list[int]
+    num_iter: list[int]
+    tol: float
+    prefilter: bool
+
+
+@dataclass
+class ILKParamsList:
+    """ILK parameters (list-valued fields generate a grid of combinations)"""
+
+    radius: list[float]
+    num_warp: list[int]
+    gaussian: bool
+    prefilter: bool
+
+
+@dataclass
+class OpticalFlowParamsList:
+    """Optical Flow parameters"""
+
+    global_flow: bool
+    fista_list: FistaParamsList
+    hs_list: HSParamsList
+    tvl1_list: TVL1ParamsList
+    ilk_list: ILKParamsList
 
 
 @dataclass

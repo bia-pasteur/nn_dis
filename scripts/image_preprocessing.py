@@ -14,11 +14,11 @@ def reshape_img(
     multiple: int = 16,
 ) -> np.ndarray:
     """
-    Pads image depth (D) to max_depth and resizes H, W to target_h and target_w
+    Pads image depth (D) to max_depth and resizes H, W to target_h and target_w.
 
     Args:
         image (np.ndarray): 3D array (D, H, W)
-        max_depth (int): Target depth to pad/center-pad
+        max_depth (int): Target depth to pad
         target_h (int): target height H
         target_w (int): target width W
 
@@ -88,13 +88,13 @@ def get_img_spacing(
     Supports both .npy and .tiff/.tif files (via bioio).
 
     Args:
-        path_img: Path to the image file (.npy or .tiff/.tif)
-        target_d: Target depth dimension
-        target_h: Target height dimension
-        target_w: Target width dimension
-        multiple: Dimension must be multiple of this value
-        channel: Channel index to extract (for multi-channel images)
-        default_spacing: Default voxel spacing (Z, Y, X) if not in metadata
+        path_img: Path to the image file (.npy or .tiff/.tif).
+        target_d: Target depth dimension.
+        target_h: Target height dimension.
+        target_w: Target width dimension.
+        multiple: Dimension must be multiple of this value.
+        channel: Channel index to extract (for multi-channel images).
+        default_spacing: Default voxel spacing (Z, Y, X) if not in metadata.
         crop: Optional cropping ranges as ((d_start, d_end), (h_start, h_end), (w_start, w_end)).
               If None, no cropping is applied.
 
@@ -151,14 +151,6 @@ def get_img_spacing(
         1,
     ).astype(np.float32)
 
-    # q_low, q_high = np.quantile(img, [0.01, 0.99])
-
-    # img_norm = np.clip(
-    #     (img - q_low) / (q_high - q_low + 1e-8),
-    #     0,
-    #     1,
-    # ).astype(np.float32)
-
     # Reshape frames
     ref = reshape_img(img_norm[0], target_d, target_h, target_w, multiple)
     moving = reshape_img(img_norm[1], target_d, target_h, target_w, multiple)
@@ -181,7 +173,21 @@ def get_ugt(
     target_h: int = 128,
     target_w: int = 128,
     multiple: int = 16,
-):
+) -> np.ndarray:
+    """
+    Get the ground truth displacement on a given image.
+
+    Args:
+        img_path (Path): Path to the image.
+        path_gt (Path): Path to the folder containing the ground truth displacement field.
+        target_d: Target depth dimension. Defaults to 32.
+        target_h: Target height dimension. Defaults to 128.
+        target_w: Target width dimension. Defaults to 128.
+        multiple: Dimension must be multiple of this value. Defaults to 16.
+
+    Returns:
+        np.ndarray: Ground-Truth displacement field.
+    """
     name_img = img_path.name
     ugt_name = name_img.replace("_img.npy", "_ugt.npy")
     path_ugt_file = path_gt / ugt_name
@@ -200,6 +206,16 @@ def get_ugt(
 
 
 def get_max_depths(files: list[Path]):
+    """
+    Extract the maximum depth observed in different images.
+    Depth = number of Z-stack.
+
+    Args:
+        files (list[Path]): Files containing images.
+
+    Returns:
+        float: Maximum depth.
+    """
     depths = []
     for f in files:
         if f.suffix.lower() == ".npy":

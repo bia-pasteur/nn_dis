@@ -1,26 +1,3 @@
-#!/usr/bin/env python
-
-"""
-Image registration script using VoxelMorph models.
-
-This script registers a ref image to a moving image using a trained VoxelMorph model,
-following the workflow from tests_synthetic.ipynb.
-
-Supports both .npy and .tiff/.tif files (via bioio).
-Outputs the warped ref image and displacement field.
-
-Example usage:
-    python scripts/register.py \
-        --input path/to/image.tiff \
-        --model path/to/model.pt \
-        --output_dir path/to/results \
-        --channel 2 \
-        --moving_d 32 --moving_h 128 --moving_w 128 \
-        --iterations 7
-
-If you use this code, please cite the appropriate VoxelMorph papers.
-"""
-
 import importlib
 import time
 from pathlib import Path
@@ -51,9 +28,9 @@ def load_model(
     Returns:
         torch.nn.Module: Loaded model in eval mode
     """
-    device = "cpu"  # "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    model_path = f"{folder_path}/best.pt"  # best.pt"
+    model_path = f"{folder_path}/best.pt"
 
     if model_type == "aniso":
         model = network.models.NetworkPairwiseAnisotropic(
@@ -75,10 +52,6 @@ def load_model(
     model.eval()
 
     return model
-
-
-def compose_flows(transformer, previous_flow, new_flow):
-    return new_flow + transformer(previous_flow, new_flow)
 
 
 def register(
@@ -106,7 +79,6 @@ def register(
         model_type: Type of model used.
                     Can be 'iso' for isotropic images or 'aniso' for anisotropic images. Defaults to "aniso".
         features: Feature channels used in the model. Defaults to [16, 32, 32, 64, 64].
-        nb_warps: Number of registration refinement iterations. Defaults to 5.
         channel: Channel index to work on. None for images without channels. Defaults to None.
         default_spacing: Default voxel spacing (Z, Y, X) if not in metadata. Defaults to None.
         target_d: Target depth dimension. Defaults to 32.

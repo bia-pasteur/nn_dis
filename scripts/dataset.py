@@ -1,4 +1,4 @@
-"""This is useful to create the datasets"""
+"""Build PyTorch datasets of paired microscopy volumes with ground-truth flow."""
 
 from pathlib import Path
 
@@ -13,34 +13,29 @@ from torch.utils.data import Dataset
 from scripts.image_preprocessing import get_img_spacing, get_max_depths, get_ugt
 
 
-def get_spatial_transforms():
-    """3D transformations for training
+def get_spatial_transforms() -> tio.Transforms:
+    """
+    Obtain 3D spatial transformations (flips on each axis)
 
     Returns:
-        _type_: _description_
+        tio.Transforms: Spatial transform.
     """
-
     spatial_transforms = tio.Compose(
         [
             tio.RandomFlip(axes=("LR",), flip_probability=0.3),
             tio.RandomFlip(axes=("AP",), flip_probability=0.3),
             tio.RandomFlip(axes=("IS",), flip_probability=0.3),
-            # tio.RandomAffine(
-            #     scales=(0.9, 1.1),
-            #     degrees=(-180, 180, 0, 0, 0, 0),
-            #     translation=7,
-            #     p=0.5,
-            # ),
         ],
     )
     return spatial_transforms
 
 
 def get_intensity_transforms():
-    """3D transformations for training
+    """
+    Obtain 3D intensity transformations for training (blur)
 
     Returns:
-        _type_: _description_
+        tio.Transforms: Intensity transform.
     """
 
     intensity_transforms = tio.Compose(
@@ -58,7 +53,7 @@ def compute_mask(img: np.ndarray, max_size: int = 20, radius: int = 9) -> np.nda
 
     Args:
         img (np.ndarray): The image containing a cell
-        max_size (int, optional): The maximum size of telements to delete from the mask obtained via thresholding. Defaults to 20.
+        max_size (int, optional): The maximum size of elements to delete from the mask obtained via thresholding. Defaults to 20.
         radius (int, optional): The radius of the disk to add around the obtained mask. Defaults to 9.
 
     Returns:
@@ -77,10 +72,11 @@ def compute_mask(img: np.ndarray, max_size: int = 20, radius: int = 9) -> np.nda
 
 
 class TractionDataset(Dataset):
-    """_summary_
+    """Dataset of paired microscopy volumes with ground-truth displacement fields.
 
-    Args:
-        Dataset (_type_): _description_
+    Attributes:
+        files (list[Path]): Sorted paths of the files (.npy or .tiff/.tif/.npy).
+        max_depth (int): Maximum number of z-slices.
     """
 
     def __init__(
@@ -93,6 +89,17 @@ class TractionDataset(Dataset):
         path_gt: str | None = None,
         default_spacing: tuple[float, float, float] | None = (4.0, 1.0, 1.0),
     ):
+        """Initialize the dataset.
+
+        Args:
+            folder (Path): Sorted paths of the image files (.npy or .tiff/.tif/.npy).
+            spatial_transforms (callable, optional): Spatial transforms (flips). Defaults to None.
+            intensity_transforms (callable, optional): Intensity transform (blur). Defaults to None.
+            channel (str | None, optional): Channel of the image to extract if necessary. Currently unused. Defaults to None.
+            mask (bool | None, optional): If True, compute a rough 2D cell mask from the raw images. Otherwise return all-ones. Defaults to False.
+            path_gt (str | None, optional): Path to the ground-truth displacement fields. Required as loading fails without it. Defaults to None.
+            default_spacing (tuple[float, float, float] | None, optional): Spacing (z, y, x) to use when unavailable within the file. Defaults to (4.0, 1.0, 1.0).
+        """
         self.files = sorted(
             [
                 *folder.glob("*.tiff"),
@@ -110,15 +117,19 @@ class TractionDataset(Dataset):
 
         self.max_depth = get_max_depths(self.files)
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """Return the number of samples in the dataset."""
         return len(self.files)
 
     def _get_spatial_transform_linear_matrix(self, subject: tio.Subject) -> np.ndarray:
-        """
-        Recover the cumulative linear transformation applied to displacement
-        vectors from TorchIO's transform history.
+        """Compute the linear part of the transform applied to a subject.
 
-        The returned matrix acts on vectors in (dx, dy, dz) order.
+        Args:
+            subject (tio.Subject): Subject after applying the spatial transforms.
+
+        Returns:
+            np.ndarray: Composed (3, 3) float32 linear matrix, mapping flow vectors
+            from the original to the transformed space.
         """
         total_linear_xyz = np.eye(3, dtype=np.float32)
 
@@ -186,6 +197,16 @@ class TractionDataset(Dataset):
         image: torch.Tensor,
         flow: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Apply the spatial transforms to an image stack and its flow.
+        Args:
+            image (torch.Tensor): Image stack of shape (2, Z, H, W) — ref and moving.
+            flow (torch.Tensor): Ground-truth flow of shape (3, Z, H, W), order (dz, dy, dx).
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]: Transformed image (2, Z, H, W)
+            and flow (3, Z, H, W). If no spatial transform is set, returns
+            the inputs unchanged.
+        """
         # Preserve the original tensors when no spatial transform
         # was requested. This makes the non-augmented case unambiguous.
         if self.spatial_transforms is None:
@@ -225,6 +246,16 @@ class TractionDataset(Dataset):
         self,
         image: torch.Tensor,
     ) -> torch.Tensor:
+        """
+        Apply the intensity transforms to an image stack.
+
+        Args:
+            image (torch.Tensor): Image stack of shape (2, Z, H, W).
+
+        Returns:
+            torch.Tensor: Transformed image. If no intensity transform is set,
+            returns the input unchanged.
+        """
         if self.intensity_transforms is None:
             return image
 
@@ -244,7 +275,25 @@ class TractionDataset(Dataset):
 
         return transformed_image
 
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: int) -> dict:
+        """
+        Load and preprocess one sample.
+
+        Args:
+            index (int): Index of the sample in self.files.
+
+        Returns:
+            dict: A sample dictionary with keys:
+
+                - ref (torch.Tensor): Reference image, (1, Z, H, W).
+                - moving (torch.Tensor): Moving image, (1, Z, H, W).
+                - mask (torch.Tensor): 2D cell mask or ones, (1, 1, H, W).
+                - u_gt (torch.Tensor): Ground-truth flow (3, Z, H, W),
+                  ordered as (dz, dy, dx).
+                - mask_gt (torch.Tensor): Mask derived from the
+                  transformed reference image, (Z, H, W), boolean.
+                - spacing (torch.Tensor): Image spacing (z, y, x).
+        """
         img_path = self.files[index]
 
         img, spacing = get_img_spacing(

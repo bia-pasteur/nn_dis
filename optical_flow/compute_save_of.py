@@ -25,6 +25,27 @@ def save_flow_of(
     default_spacing: Tuple[float, float, float] = (1.0, 0.13, 0.13),
     crop: Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]] = None,
 ):
+    """
+    Save the displacement fields computed by an OF algorithm on one or several images
+
+    Args:
+        algo (Callable): The OF algorithm
+        params (Dict): Parameters of the algorithm
+        algo_name (str): Name of the algorithm for saving
+        folder_img (Path): Folder containing the images
+        save_path (Path): Patht o the folder where results will be saved.
+        target_d: Target depth dimension. Defaults to 32.
+        target_h: Target height dimension. Defaults to 128.
+        target_w: Target width dimension. Defaults to 128.
+        multiple: Dimension must be multiple of this value. Defaults to 16.
+        channel: Channel index to work on. None for images without channels. Defaults to None.
+        default_spacing: Default voxel spacing (Z, Y, X) if not in metadata. Defaults to None.
+        crop: Optional cropping ranges as ((d_start, d_end), (h_start, h_end), (w_start, w_end)).
+              If None, no cropping is applied. Defaults to None.
+
+    Returns:
+        float: Average run time of the algorithm
+    """
     times_method = []
 
     for path_img in folder_img.iterdir():

@@ -1,5 +1,5 @@
 """
-Core model for unsupervised learning of the displacement
+Core model for learning the dispalcement field.
 """
 
 import torch
@@ -8,6 +8,8 @@ from torch import nn
 
 
 class SpatialTransformer(nn.Module):
+    """Inspired by VoxelMorph"""
+
     def __init__(self, mode: str = "bilinear"):
         super().__init__()
         self.mode = mode

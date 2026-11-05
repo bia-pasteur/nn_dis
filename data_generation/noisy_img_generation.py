@@ -27,6 +27,12 @@ def add_noise(
 
 
 def main(noise_params: NoiseParams):
+    """
+    Main entry for noisy image creation.
+
+    Args:
+        noise_params (NoiseParams): Parameters of noisy images.
+    """
     folder_images = Path(noise_params.folder_images)
     folder_noisy_images = Path(noise_params.folder_noisy_images)
     folder_noisy_images.mkdir(parents=True, exist_ok=True)

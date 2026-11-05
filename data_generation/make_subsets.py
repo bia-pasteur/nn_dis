@@ -8,6 +8,13 @@ from config import SubsetParams
 
 
 def make_subsets(subset_params: SubsetParams) -> None:
+    """
+    Create a subset of a given dataset, using symlinks for
+    memory.
+
+    Args:
+        subset_params (SubsetParams): Parameters of the subset to create.
+    """
     root = Path(subset_params.dataset_root)
     source = root / subset_params.source_folder
     sizes = sorted(set(subset_params.sizes))

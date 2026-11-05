@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 import torch
 from torch import nn
-from torch.utils.data import ConcatDataset, DataLoader
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import network
@@ -61,25 +61,25 @@ def epoch_(
     reduction: str = "mean",
 ) -> float:
     """
-    Train for one epoch.
+    Performs one training epoch.
 
-    Parameters
-    ----------
-    model : nn.Module
-        The VoxelMorph model to train.
-    dataloader : torch.utils.data.DataLoader
-        The dataloader to use for training.
-    optimizer : torch.optim.Optimizer
-        The optimizer to use for training.
-    image_loss_fn : nn.Module
-        The image loss function to use.
-    grad_loss_fn : nn.Module
-        The gradient loss function to use.
-    loss_weights : Sequence[float]
-        The weights for the image and gradient losses.
-    steps_per_epoch : int
-    training : bool
-        True if training, False if evaluation
+    Args:
+        model (nn.Module): Model.
+        dataloader (torch.utils.data.DataLoader): Dataloader.
+        optimizer (torch.optim.Optimizer): Optimizer.
+        image_loss_fn (nn.Module): Data similarity part of the loss.
+        grad_loss_fn (nn.Module): Gradient regularization part of the loss.
+        hessian_loss_fn (nn.Module): Hessian regularization part of the loss.
+        gt_loss_fn (nn.Module): Supervised part of the loss.
+        loss_weights (list[float]): Weights of each part of the loss.
+        device (str, optional): Devide. Defaults to "cuda".
+        training (bool, optional): Whether we are in training mode or validation mode. Defaults to True.
+        weight_mask (float | None, optional): Weight of the mask in the case where the image similarity loss is masked. Defaults to 0.5.
+        reduce_log (bool, optional): Whether to compute the average of the logs. Defaults to False.
+        reduction (str, optional): Reduction to use in the loss computations. Defaults to "mean".
+
+    Returns:
+        float: _description_
     """
 
     log = {
@@ -124,7 +124,6 @@ def epoch_(
 
         grad_loss = grad_loss_fn(displacement)
         hessian_loss = hessian_loss_fn(displacement)
-
         gt_loss = gt_loss_fn(
             pred=displacement, target=u_gt, mask=mask_gt, spacing=spacing
         )
@@ -157,6 +156,15 @@ def epoch_(
 
 
 def seed_everything(seed: int) -> int:
+    """
+    Enforce the same seed on every random aspect of the model.
+
+    Args:
+        seed (int): Seed.
+
+    Returns:
+        int: Seed.
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -174,11 +182,18 @@ def compute_gt_weight(
     final_weight: float = 0.0,
 ) -> float:
     """
-    Compute the (possibly decayed) weight for the ground-truth supervision loss.
+    Compute the weight of the supervision part of the loss at a given epoch.
 
-    - Before `start_epoch`: returns `base_weight` unchanged.
-    - Between `start_epoch` and `end_epoch`: linear decay to `final_weight`.
-    - After `end_epoch`: returns `final_weight`.
+    Args:
+        epoch (int): Epoch.
+        base_weight (float): Initial weight for supervision.
+        decay (bool): Whether a decay is applied during training.
+        start_epoch (int): Epoch where the decay starts.
+        end_epoch (int): Epoch where the decay ends.
+        final_weight (float, optional): Final weight for supervision, after decay. Defaults to 0.0.
+
+    Returns:
+        float: Weight for superivison at the epoch.
     """
     if not decay or epoch < start_epoch:
         return base_weight
@@ -194,7 +209,7 @@ def main(train_config: TrainConfig):
     Main entry for training
 
     Args:
-        train_config (TrainConfig): _description_
+        train_config (TrainConfig): Config file for trainign.
     """
     # Set device
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -240,84 +255,33 @@ def main(train_config: TrainConfig):
     ]
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
 
-    # Create dataloader
-    if train_config.combine:
-        micro_train_dataset = TractionDataset(
-            Path(train_config.train_data),
-            spatial_transforms=get_spatial_transforms(),
-            intensity_transforms=get_intensity_transforms(),
-            channel=train_config.channel,
-            mask=train_config.mask,
-        )
-        synthetic_train_dataset = TractionDataset(
-            Path(
-                "/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian/train"
-            ),  # Path("/pasteur/helix/projects/bia/jlahmani/data/synthetic/train"),
-            spatial_transforms=get_spatial_transforms(),
-            intensity_transforms=get_intensity_transforms(),
-            channel=None,
-            mask=False,
-        )
+    train_dataset = TractionDataset(
+        Path(train_config.train_data),
+        spatial_transforms=get_spatial_transforms(),
+        intensity_transforms=get_intensity_transforms(),
+        channel=train_config.channel,
+        mask=train_config.mask,
+        default_spacing=(4.0, 1.0, 1.0),
+        path_gt=Path(train_config.path_gt),
+    )
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=train_config.batch_size,
+        num_workers=train_config.workers,
+        shuffle=True,
+    )
 
-        train_dataset = ConcatDataset([micro_train_dataset, synthetic_train_dataset])
-
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=train_config.batch_size,
-            num_workers=train_config.workers,
-            shuffle=True,
-        )
-
-        micro_val_dataset = TractionDataset(
-            Path(train_config.val_data),
-            channel=train_config.channel,
-            mask=train_config.mask,
-        )
-        synthetic_val_dataset = TractionDataset(
-            Path(
-                "/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian/val"
-            ),
-            channel=None,
-            mask=False,
-        )
-
-        val_dataset = ConcatDataset([micro_val_dataset, synthetic_val_dataset])
-
-        validation_loader = DataLoader(
-            val_dataset,
-            batch_size=train_config.batch_size,
-            num_workers=train_config.workers,
-            shuffle=True,
-        )
-
-    else:
-        train_dataset = TractionDataset(
-            Path(train_config.train_data),
-            spatial_transforms=get_spatial_transforms(),
-            intensity_transforms=get_intensity_transforms(),
-            channel=train_config.channel,
-            mask=train_config.mask,
-            default_spacing=(4.0, 1.0, 1.0),
-            path_gt=Path(train_config.path_gt),
-        )
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=train_config.batch_size,
-            num_workers=train_config.workers,
-            shuffle=True,
-        )
-
-        validation_dataset = TractionDataset(
-            Path(train_config.val_data),
-            channel=train_config.channel,
-            mask=train_config.mask,
-            path_gt=Path(train_config.path_gt),
-        )
-        validation_loader = DataLoader(
-            validation_dataset,
-            batch_size=train_config.batch_size,
-            num_workers=train_config.workers,
-        )
+    validation_dataset = TractionDataset(
+        Path(train_config.val_data),
+        channel=train_config.channel,
+        mask=train_config.mask,
+        path_gt=Path(train_config.path_gt),
+    )
+    validation_loader = DataLoader(
+        validation_dataset,
+        batch_size=train_config.batch_size,
+        num_workers=train_config.workers,
+    )
 
     # Create output directory
     output_dir = Path(train_config.output_dir)
@@ -327,9 +291,6 @@ def main(train_config: TrainConfig):
     (output_dir / "train_config.json").write_text(
         json.dumps(dataclasses.asdict(train_config), indent=2)
     )
-
-    # Training loop
-    # print(f"Training for {train_config.epochs} epochs...")
 
     logs_train, logs_validation = {}, {}
     best_loss = float("inf")
@@ -343,7 +304,7 @@ def main(train_config: TrainConfig):
             final_weight=train_config.gt_decay_final or 0.0,
         )
         loss_weights[3] = current_gt_weight
-        # Train for one epoch
+
         epoch_log_train = epoch_(
             model=model,
             dataloader=train_loader,

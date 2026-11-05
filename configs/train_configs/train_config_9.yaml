@@ -21,5 +21,4 @@ train_config:
     reduction: "mean"
     channel: null
     mask: False
-    combine: False
     path_gt: '/pasteur/helix/projects/bia/jlahmani/data/fractals/rigid_gaussian_new/all_data'

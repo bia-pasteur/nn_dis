@@ -16,7 +16,7 @@ import pandas as pd
 import scipy.ndimage as ndi
 import torch
 
-from quantities_computation import (
+from experiments.src.quantities_computation import (
     compute_normals_from_mask_3d,
     compute_traction_3d,
     deformation,
@@ -26,14 +26,50 @@ from quantities_computation import (
 from scripts.image_preprocessing import get_img_spacing, reshape_img
 from scripts.register import register
 
+_RMSE_METRIC_KEYS = {
+    "disp": "rmse_flows",
+    "strain": "rmse_strain",
+    "def": "rmse_def",
+    "stress": "rmse_stress",
+    "traction": "rmse_traction",
+}
+
+
+def _is_isotropic_model(folder_path: str | Path) -> bool:
+    """
+    Ugly function to state if the model is isotropic by its name
+    (train 16)
+
+    Args:
+        folder_path (str | Path): Path to the folder containing the model results
+
+    Returns:
+        bool: True if the model is isotropic, else False
+    """
+    name = Path(folder_path).name
+    match = re.fullmatch(r"(.+?)_(?:\d+|bis|ter)", name)
+    if match and re.search(r"\d$", match.group(1)):
+        name = match.group(1)
+    return name.endswith("16")
+
 
 def get_img_dis_model(
     img_path: Path,
     folder_path: Path,
-    model_type: str = "aniso",
     default_spacing: list[float] = [1.0, 0.13, 0.13],
 ):
-    if str(folder_path).endswith("16"):
+    """
+    Get the image, spacing and displacement inferred by the model.
+
+    Args:
+        img_path (Path): Path to the image
+        folder_path (Path): Path to the folder containing the model results
+        default_spacing (list[float], optional): Default voxel size. Defaults to [1.0, 0.13, 0.13].
+
+    Returns:
+        _type_: _description_
+    """
+    if _is_isotropic_model(folder_path):
         model_type = "iso"
         features = [16, 32, 32]
     else:
@@ -55,7 +91,17 @@ def get_img_dis_model(
     return img, spacing, mask, dis_model, warped_model, dis_model_masked
 
 
-def rmse(pred, target):
+def rmse(pred: np.ndarray, target: np.ndarray) -> float:
+    """
+    Compute the RMSE of a prediction vs a target
+
+    Args:
+        pred (np.ndarray): Prediction
+        target (np.ndarray): Target
+
+    Returns:
+        float: RMSE
+    """
     return np.sqrt(np.mean((pred - target) ** 2))
 
 
@@ -63,6 +109,7 @@ def _compute_mean_std_null_disp(results: dict) -> dict:
     """
     Compute the average RMSE (and its std) of the null displacement field
     (i.e. predicting zero displacement everywhere) and add it to the results dictionary.
+    Useful for verifications.
 
     Args:
         results (dict): Results dictionary.
@@ -89,25 +136,18 @@ def erode_anisotropic(
 ) -> np.ndarray:
     """
     Erode a mask by a constant physical depth, accounting for anisotropic voxels.
-
-    A plain `ndi.binary_erosion(iterations=n)` erodes by n voxels along every
-    axis, i.e. `n * spacing[i]` physical units along axis i. For anisotropic
-    voxels (e.g. a thin cell imaged with a coarse z step) this pushes the
-    eroded boundary much deeper inside the cell along the coarse axis. Here
-    the mask is instead eroded by an ellipsoidal structuring element whose
-    radii are `depth / spacing[i]` voxels along axis i, floored at 1 voxel to
-    keep the boundary clear of the finite-difference stencil used to compute
-    the strain. With isotropic voxels this reduces to a Euclidean erosion by
-    `depth`.
+    Avoids going too deep in the much smaller Z-axis.
+    Erosion performed using an ellipsoidal structure with radii
+    depth / spacing[i] voxels along axis i.
 
     Args:
-        mask (np.ndarray): Boolean mask of the cell, shape (Z, Y, X).
+        mask (np.ndarray): Mask of the cell.
         spacing (Sequence[float]): Physical size of a voxel (Z, Y, X).
         depth (float): Physical depth of the erosion, in the same units as
-                       `spacing`.
+                       spacing.
 
     Returns:
-        np.ndarray: Boolean mask eroded by `depth` physical units.
+        np.ndarray: Boolean mask eroded by depth.
     """
     radii = np.maximum(1.0, np.asarray(depth) / np.asarray(spacing))
 
@@ -145,8 +185,6 @@ def _initialize_results_image_gt(
     def_gt = deformation(strain_gt)
     stress_gt = stress_mask(strain_gt, mu, lambda_)
 
-    # Erode by 3 voxels along the finest axis, i.e. a constant physical depth
-    # of 3 * min(spacing) on every side of the cell.
     mask_eroded_gt = erode_anisotropic(mask, spacing, 3 * min(spacing))
     inner_boundary_gt = mask_eroded_gt & (~ndi.binary_erosion(mask_eroded_gt))
     normals_gt = compute_normals_from_mask_3d(mask_eroded_gt)
@@ -250,18 +288,30 @@ def _update_results_method(
     return results_im
 
 
-def _compute_mean_stds_values(results: dict, method_name: str) -> dict:
+def _compute_mean_stds_values(
+    results: dict,
+    method_name: str,
+    group_members: list[str] | None = None,
+) -> dict:
     """
     Compute the average values and their stds for all mechanical quantities
     for one OF method and add them to the results dictionary.
 
+    If group_members is given, the values of every member method (e.g. the
+    trainings of the same config with different seeds) are pooled: the means and
+    stds are computed over all the images of all the members. The std between the
+    per-member means is also added under the "std_seeds_*" keys.
+
     Args:
         results (dict): Results dictionary.
-        method_name (str): Name of the optical flow method.
+        method_name (str): Name of the OF method (or of the seed group).
+        group_members (list[str] | None): Names of the methods to pool into
+                                          method_name. Defaults to None.
 
     Returns:
         dict: Updated results dictionary.
     """
+    member_names = group_members if group_members is not None else [method_name]
     disp_vals, strain_vals, def_vals, stress_vals, trac_vals, runtime_vals = (
         [],
         [],
@@ -274,12 +324,13 @@ def _compute_mean_stds_values(results: dict, method_name: str) -> dict:
         if not isinstance(nb, int):
             continue
         if res:
-            disp_vals.append(res["rmse_flows"][method_name])
-            strain_vals.append(res["rmse_strain"][method_name])
-            def_vals.append(res["rmse_def"][method_name])
-            stress_vals.append(res["rmse_stress"][method_name])
-            trac_vals.append(res["rmse_traction"][method_name])
-            runtime_vals.append(res["runtime"][method_name])
+            for member in member_names:
+                disp_vals.append(res["rmse_flows"][member])
+                strain_vals.append(res["rmse_strain"][member])
+                def_vals.append(res["rmse_def"][member])
+                stress_vals.append(res["rmse_stress"][member])
+                trac_vals.append(res["rmse_traction"][member])
+                runtime_vals.append(res["runtime"][member])
 
     results["mean_rmse_disp"][method_name] = np.mean(disp_vals)
     results["mean_rmse_strain"][method_name] = np.mean(strain_vals)
@@ -294,6 +345,61 @@ def _compute_mean_stds_values(results: dict, method_name: str) -> dict:
     results["std_rmse_stress"][method_name] = np.std(stress_vals)
     results["std_rmse_traction"][method_name] = np.std(trac_vals)
     results["std_runtime"][method_name] = np.std(runtime_vals)
+
+    if group_members is not None:
+        for metric, metric_key in _RMSE_METRIC_KEYS.items():
+            seed_means = [
+                np.mean(
+                    [
+                        res[metric_key][member]
+                        for nb, res in results.items()
+                        if isinstance(nb, int) and res
+                    ]
+                )
+                for member in group_members
+            ]
+            results.setdefault(f"std_seeds_rmse_{metric}", {})[method_name] = np.std(
+                seed_means
+            )
+
+    return results
+
+
+def _merge_seed_groups_per_image(
+    results: dict,
+    seed_groups: dict[str, list[str]],
+) -> dict:
+    """
+    For every image, average the metric values of the methods of each seed group
+    and store the averages under the group name, alongside the per-seed values.
+
+    Args:
+        results (dict): Results dictionary, whose per-image entries contain the
+                        values of every member of the seed groups.
+        seed_groups (dict[str, list[str]]): {group_name: [method_names]}.
+
+    Returns:
+        dict: Updated results dictionary.
+    """
+    for nb, results_im in results.items():
+        if not isinstance(nb, int) or not results_im:
+            continue
+        for group_name, members in seed_groups.items():
+            for metric in [
+                "rmse_flows",
+                "rmse_strain",
+                "rmse_def",
+                "rmse_stress",
+                "rmse_traction",
+                "runtime",
+            ]:
+                vals = [
+                    results_im[metric][member]
+                    for member in members
+                    if member in results_im.get(metric, {})
+                ]
+                if vals:
+                    results_im[metric][group_name] = float(np.mean(vals))
 
     return results
 
@@ -346,11 +452,7 @@ def _compute_rmse_vs_noise(results: dict) -> dict:
     results["noise_stds"] = [by_level[level][0]["noise_std"] for level in levels]
 
     metric_names = {
-        "rmse_flows": "disp",
-        "rmse_strain": "strain",
-        "rmse_def": "def",
-        "rmse_stress": "stress",
-        "rmse_traction": "traction",
+        metric_key: metric for metric, metric_key in _RMSE_METRIC_KEYS.items()
     }
 
     per_image_results = [res for images in by_level.values() for res in images]
@@ -394,32 +496,70 @@ def _load_of_runtimes(path_of_results: Path) -> dict[str, float]:
 
 
 def _normalize_model_folders(
-    results_folders: list[str | Path] | dict[str, str | Path],
-) -> dict[str, Path]:
+    results_folders: list[str | Path] | dict[str, str | Path | Sequence[str | Path]],
+) -> tuple[dict[str, Path], dict[str, list[str]], list[str]]:
     """
-    Convert the list (or dict) of model folders into a dict {model_name: folder_path}.
+    Convert the list (or dict) of model folders into a dict {method_name: folder_path}
+    and a mapping of the trainings that were run several times with different seeds.
 
+    - If a list is given, the model name is model_<folder_name>.
     - If a dict is given, the keys are used as model names.
-    - If a list is given, the model name is "model_<folder_name>".
-      Duplicate names are disambiguated with a numeric suffix.
-    """
-    if isinstance(results_folders, dict):
-        return {name: Path(folder) for name, folder in results_folders.items()}
 
+    Returns:
+        tuple[dict[str, Path], dict[str, list[str]], list[str]]:
+            - {method_name: folder_path} for every folder (seed folders included).
+            - {group_name: [method_names]} for the averaged seed groups.
+            - Display names of the methods, in input order (seed group members excluded).
+    """
     if isinstance(results_folders, (str, Path)):
         results_folders = [results_folders]
 
+    if isinstance(results_folders, list):
+        models = {}
+        for folder in results_folders:
+            folder = Path(folder)
+            base_name = f"model_{folder.name}"
+            name = base_name
+            k = 1
+            while name in models:
+                name = f"{base_name}_{k}"
+                k += 1
+            models[name] = folder
+        return models, {}, list(models.keys())
+
     models = {}
-    for folder in results_folders:
-        folder = Path(folder)
-        base_name = f"model_{folder.name}"
-        name = base_name
-        k = 1
-        while name in models:
-            name = f"{base_name}_{k}"
-            k += 1
-        models[name] = folder
-    return models
+    seed_groups: dict[str, list[str]] = {}
+
+    for name, folders in results_folders.items():
+        if isinstance(folders, (str, Path)):
+            folders = [folders]
+        if not folders:
+            raise ValueError(f"`results_folders['{name}']` is empty.")
+
+        existing = []
+        for folder in folders:
+            folder = Path(folder)
+            if folder.is_dir():
+                existing.append(folder)
+            else:
+                print(f"WARNING: model folder not found, skipped in '{name}': {folder}")
+        if not existing:
+            raise ValueError(f"No existing model folder for '{name}': {folders}")
+
+        if len(existing) == 1:
+            models[name] = existing[0]
+        else:
+            seed_groups[name] = []
+            for folder in existing:
+                member_name = folder.name
+                k = 1
+                while member_name in models or member_name in results_folders:
+                    member_name = f"{folder.name}_{k}"
+                    k += 1
+                models[member_name] = folder
+                seed_groups[name].append(member_name)
+
+    return models, seed_groups, list(results_folders.keys())
 
 
 def _process_image(
@@ -434,11 +574,24 @@ def _process_image(
     save_fields: bool = False,
 ) -> dict:
     """
-    Compute all the results for a single image (the body of the loop of
-    `compute_of_strain_traction`), so images can be processed in parallel.
+    Compute all the results for a single image, so images can be processed in parallel.
 
-    Args: same as the corresponding arguments of `compute_of_strain_traction`,
-          for a single image `path_img`.
+    Args:
+        path_img (Path): Path to the image.
+        model_folders (dict[str, Path]): Dictionary containing the different folder
+        of_functions (list[str]): _description_
+        path_of_results (Path): _description_
+        folder_img_ugt (Path): _description_
+        noise_stds (np.ndarray | None): _description_
+        folder_mask_img (str | Path | None): _description_
+        of_runtimes (dict[str, float]): _description_
+        save_fields (bool, optional): _description_. Defaults to False.
+
+    Raises:
+        ValueError: _description_
+        ValueError: _description_
+        ValueError: _description_
+        ValueError: _description_
 
     Returns:
         dict: The results dictionary for this image.
@@ -573,7 +726,10 @@ def compute_of_strain_traction(
                                   to add in the comparison.
         results_folders (list | dict): Folders containing the trained models.
             - list: model names are derived from folder names.
-            - dict: {model_name: folder_path}.
+            - dict: {model_name: folder_path}, or {model_name: [folder_paths]} when
+              a training was run several times with different seeds: the results of
+              the folders are then averaged into one model named model_name
+              (each folder is also kept as a separate method in the results).
         path_of_results (str | Path): Folder containing the optical flow results and average run time per method.
         noise_stds (np.ndarray | None): Std of the noise of each image, indexed by the
                                         "noise_XX". If None, the images are assumed noiseless.
@@ -595,7 +751,9 @@ def compute_of_strain_traction(
     """
     folder_img_ugt = Path(folder_img_ugt)
     path_of_results = Path(path_of_results)
-    model_folders = _normalize_model_folders(results_folders)
+    model_folders, seed_groups, display_names = _normalize_model_folders(
+        results_folders
+    )
 
     if not model_folders:
         raise ValueError("`results_folders` must contain at least one model folder.")
@@ -627,6 +785,9 @@ def compute_of_strain_traction(
                 print(f"{nb} images processed")
             results[nb] = results_im
 
+    if seed_groups:
+        _merge_seed_groups_per_image(results, seed_groups)
+
     for key in [
         "mean_rmse_disp",
         "mean_rmse_strain",
@@ -640,14 +801,27 @@ def compute_of_strain_traction(
         "std_rmse_stress",
         "std_rmse_traction",
         "std_runtime",
+        "std_seeds_rmse_disp",
+        "std_seeds_rmse_strain",
+        "std_seeds_rmse_def",
+        "std_seeds_rmse_stress",
+        "std_seeds_rmse_traction",
     ]:
         results[key] = {}
 
-    results["model_names"] = list(model_folders.keys())
+    results["model_names"] = display_names
     results["model_folders"] = {k: str(v) for k, v in model_folders.items()}
+    results["seed_groups"] = seed_groups
+    results["seed_folders"] = {
+        group: [str(model_folders[member]) for member in members]
+        for group, members in seed_groups.items()
+    }
 
-    for method in [*model_folders.keys(), *of_functions]:
-        _compute_mean_stds_values(results, method)
+    member_names = [name for name in model_folders if name not in display_names]
+    for method in [*display_names, *of_functions, *member_names]:
+        _compute_mean_stds_values(
+            results, method, group_members=seed_groups.get(method)
+        )
 
     _compute_mean_std_null_disp(results)
 
@@ -657,7 +831,36 @@ def compute_of_strain_traction(
     return results
 
 
-def save_rmse_csv(results: dict, output_path: str | Path):
+def save_rmse_csv(
+    results: dict,
+    output_path: str | Path,
+    std_source: str = "dataset",
+):
+    """
+    Save the mean RMSEs (and runtimes) of every method to a CSV file.
+
+    Args:
+        results (dict): Results dictionary as returned by
+                        `compute_of_strain_traction`.
+        output_path (str | Path): Path of the CSV file to write.
+        std_source (str): Which standard deviations to report next to the
+                          means. "dataset" (default) uses the std over all the
+                          images of all the members
+                          "seeds" uses the std between the per-seed means of
+                          each seed group, falling back to the dataset std for
+                          methods without seed stds.
+    """
+    if std_source not in ("dataset", "seeds"):
+        raise ValueError(
+            f"Unknown std_source: '{std_source}'. Expected 'dataset' or 'seeds'."
+        )
+
+    seed_members = {
+        member
+        for members in results.get("seed_groups", {}).values()
+        for member in members
+    }
+
     metrics = [
         key.removeprefix("mean_")
         for key in results
@@ -673,7 +876,7 @@ def save_rmse_csv(results: dict, output_path: str | Path):
 
     rows = []
     for method in methods:
-        if method == "null":
+        if method == "null" or method in seed_members:
             continue
 
         row = {"Method": method}
@@ -681,6 +884,8 @@ def save_rmse_csv(results: dict, output_path: str | Path):
         for metric in metrics:
             mean = results[f"mean_{metric}"][method]
             std = results.get(f"std_{metric}", {}).get(method)
+            if std_source == "seeds":
+                std = results.get(f"std_seeds_{metric}", {}).get(method, std)
 
             row[metric] = (
                 f"{mean:.4g} ± {std:.4g}" if std is not None else f"{mean:.4g}"
@@ -742,13 +947,10 @@ def compute_results_micro_im(
         default_spacing=default_spacing,
         crop=crop,
     )
-    # Inference only, comparable with the optical flow runtimes.
     h_model = np.transpose(h_model, (1, 0, 2, 3, 4))
 
     flows_folder = Path(flows_folder)
 
-    # Runtimes of the optical flow algorithms, as measured on this image if a
-    # per-image timing file exists, else as averaged over the saved batch.
     runtime_file = flows_folder / f"time_methods_{Path(filename).stem}.csv"
     if runtime_file.exists():
         runtimes_df = pd.read_csv(runtime_file)
@@ -776,8 +978,7 @@ def compute_results_micro_im(
     mu = E / (2.0 * (1.0 + nu))
 
     mask = img[0] > 0.1
-    # Same constant physical depth as the synthetic pipeline: 3 voxels along
-    # the finest axis (here `erosion_iterations` instead of the hardcoded 3).
+
     mask_eroded = erode_anisotropic(
         mask,
         spacing,

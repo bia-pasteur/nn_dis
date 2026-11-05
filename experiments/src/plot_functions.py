@@ -460,12 +460,14 @@ def save_rmse_vs_train_size(
     train_sizes: dict[str, float],
     metric: str | list[str] = "disp",
     display: bool = False,
+    std_source: str = "dataset",
 ) -> None:
     """
     Plot mean RMSE versus training dataset size for one or more metrics.
 
     Each metric is plotted in a separate subplot, as a single curve connecting
-    the trainings sorted by training size.
+    the trainings sorted by training size. Error bars are drawn when the
+    corresponding std key is available.
 
     Args:
         results: Results dictionary containing the "mean_rmse_<metric>" keys,
@@ -477,6 +479,12 @@ def save_rmse_vs_train_size(
         metric: Metric or list of metrics to plot: "disp", "strain", "def",
             "stress", or "traction". Defaults to "disp".
         display: Whether to display the figure. Defaults to False.
+        std_source: Which standard deviations to draw as error bars.
+            "dataset" (default) uses the std over all the images of all the
+            members ("std_rmse_<metric>" keys); "seeds" uses the std between
+            the per-seed means of each seed group ("std_seeds_rmse_<metric>"
+            keys), falling back to the dataset std for methods without seed
+            stds.
     """
     metrics = [metric] if isinstance(metric, str) else list(metric)
     if not metrics:
@@ -497,6 +505,11 @@ def save_rmse_vs_train_size(
         raise ValueError(
             f"No training size given for: {missing_sizes}. "
             "Provide every method key in 'train_sizes'."
+        )
+
+    if std_source not in ("dataset", "seeds"):
+        raise ValueError(
+            f"Unknown std_source: '{std_source}'. Expected 'dataset' or 'seeds'."
         )
 
     labels = {
@@ -526,15 +539,43 @@ def save_rmse_vs_train_size(
         xs = [train_sizes[method_key] for _, method_key in sorted_methods]
         ys = [results[mean_key][method_key] for _, method_key in sorted_methods]
 
-        ax.plot(
-            xs,
-            ys,
-            color=color,
-            marker=marker,
-            markersize=7,
-            linewidth=2.0,
-            zorder=3,
-        )
+        if std_source == "seeds":
+            seed_stds = results.get(f"std_seeds_rmse_{m}", {})
+            es = [
+                seed_stds[method_key]
+                if method_key in seed_stds
+                else results.get(f"std_rmse_{m}", {}).get(method_key)
+                for _, method_key in sorted_methods
+            ]
+        else:
+            es = [
+                results.get(f"std_rmse_{m}", {}).get(method_key)
+                for _, method_key in sorted_methods
+            ]
+
+        if any(e is not None for e in es):
+            es = [e if e is not None else 0.0 for e in es]
+            ax.errorbar(
+                xs,
+                ys,
+                yerr=es,
+                color=color,
+                marker=marker,
+                markersize=3,
+                linewidth=2.0,
+                capsize=4,
+                zorder=3,
+            )
+        else:
+            ax.plot(
+                xs,
+                ys,
+                color=color,
+                marker=marker,
+                markersize=7,
+                linewidth=2.0,
+                zorder=3,
+            )
 
         all_sizes = sorted(train_sizes[method_key] for _, method_key in methods)
         ax.set_xticks(all_sizes)

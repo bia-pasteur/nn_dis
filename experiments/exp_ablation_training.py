@@ -1,28 +1,43 @@
 import pickle
 from pathlib import Path
 
-from experiments.pipeline_methods import (
+from experiments.src.pipeline_methods import (
     compute_of_strain_traction,
     save_rmse_csv,
 )
-from experiments.plot_functions import save_rmse_vs_train_size
+from experiments.src.plot_functions import save_rmse_vs_train_size
 
 FOLDER_SYNTH_IMG = Path("/Users/josephinelahmani/Desktop/data/dataset_3d")
 PATH_OF_RESULTS = Path("/Users/josephinelahmani/Desktop/nn_dis/data/computed_flows")
-PATHS_TO_MODELS = {
-    "train_18": "/Users/josephinelahmani/Desktop/nn_dis/results/train_18",
-    "train_19": "/Users/josephinelahmani/Desktop/nn_dis/results/train_19",
-    "train_20": "/Users/josephinelahmani/Desktop/nn_dis/results/train_20",
-    "train_21": "/Users/josephinelahmani/Desktop/nn_dis/results/train_21",
-    "train_14": "/Users/josephinelahmani/Desktop/nn_dis/results/train_14",
-}
+RESULTS_ROOT = Path("/Users/josephinelahmani/Desktop/nn_dis/results")
 
+PATHS_TO_MODELS = {
+    "train_18": [
+        RESULTS_ROOT / "train_18",
+        RESULTS_ROOT / "train_18_4",
+        RESULTS_ROOT / "train_18_5",
+    ],
+    "train_19": [
+        RESULTS_ROOT / "train_19",
+        RESULTS_ROOT / "train_19_4",
+        RESULTS_ROOT / "train_19_5",
+    ],
+    "train_22": [
+        RESULTS_ROOT / "train_22",
+        RESULTS_ROOT / "train_22_4",
+        RESULTS_ROOT / "train_22_5",
+    ],
+    "train_14": [
+        RESULTS_ROOT / "train_14_ter",
+        RESULTS_ROOT / "train_14_4",
+        RESULTS_ROOT / "train_14_5",
+    ],
+}
 
 TRAIN_SIZES = {
     "train_18": 10,
     "train_19": 100,
-    "train_20": 300,
-    "train_21": 500,
+    "train_22": 1000,
     "train_14": 630,
 }
 METRICS = ["disp"]
@@ -30,21 +45,10 @@ METHODS = [(name, name) for name in PATHS_TO_MODELS]
 
 SAVE_DIR_DICT = Path("/Users/josephinelahmani/Desktop/nn_dis/results/dict")
 SAVE_DIR = "/Users/josephinelahmani/Desktop/nn_dis/results/plots"
-RECOMPUTE = False
+RECOMPUTE = True
 SAVE_PATH_DICT = SAVE_DIR_DICT / "results_ablation_training.pkl"
 OUTPUT_CSV = SAVE_DIR_DICT / "rmse_ablation_training.csv"
 PLOTS_DIR = SAVE_DIR
-
-
-def plot(results_ablation: dict, metrics: list):
-    save_rmse_vs_train_size(
-        results=results_ablation,
-        results_dir=PLOTS_DIR,
-        methods=METHODS,
-        train_sizes=TRAIN_SIZES,
-        metric=metrics,
-        display=False,
-    )
 
 
 if RECOMPUTE:
@@ -65,7 +69,11 @@ if RECOMPUTE:
                 protocol=pickle.HIGHEST_PROTOCOL,
             )
 
-        save_rmse_csv(results=results_ablation, output_path=OUTPUT_CSV)
+        save_rmse_csv(
+            results=results_ablation,
+            output_path=OUTPUT_CSV,
+            std_source="seeds",
+        )
 
         save_rmse_vs_train_size(
             results=results_ablation,
@@ -74,6 +82,7 @@ if RECOMPUTE:
             train_sizes=TRAIN_SIZES,
             metric=METRICS,
             display=False,
+            std_source="seeds",
         )
 
 else:
@@ -82,7 +91,12 @@ else:
         with SAVE_PATH_DICT.open("rb") as f:
             results_ablation = pickle.load(f)
 
-        save_rmse_csv(results=results_ablation, output_path=OUTPUT_CSV)
+        save_rmse_csv(
+            results=results_ablation,
+            output_path=OUTPUT_CSV,
+            std_source="seeds",
+        )
+
         save_rmse_vs_train_size(
             results=results_ablation,
             results_dir=SAVE_DIR,
@@ -90,6 +104,7 @@ else:
             train_sizes=TRAIN_SIZES,
             metric=METRICS,
             display=False,
+            std_source="seeds",
         )
 
 

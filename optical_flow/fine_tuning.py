@@ -1,103 +1,19 @@
-"""Fine-tuning of the optical flow parameters on the synthetic images.
-
-Similar to `ofmeca_elas/mechanics/examples/fine_tuning.py`: every combination
-of the list-valued parameters is tested, the masked RMSE against the
-ground-truth displacement is computed for every image, and the results are
-appended to one CSV file per method (`<save_dir>/<method>.csv`).
-
-The images are reshaped to the model grid (32 x 128 x 128) with
-`get_img_spacing` and the GT values are rescaled to model-grid voxels
-(y: x128/150, x: x128/155; a no-op for images already on the model grid).
-`default_spacing` is the original voxel spacing of the images, scaled to the
-model grid by `get_img_spacing` and handed to FISTA (the other algorithms have
-no spacing argument); FISTA's flow is divided by this spacing after
-computation to get back to model-grid voxels.
-
-Run with, e.g.:
-    python -m optical_flow.fine_tuning --config configs/of_fine_tuning.yaml
-"""
-
 import copy
 import csv
 import dataclasses
 import itertools
 import time
-from dataclasses import dataclass
 from pathlib import Path
 
 import jsonargparse
 import numpy as np
 
+from config import OpticalFlowParamsList
+from experiments.src.pipeline_methods import rmse
 from optical_flow.algorithms import fista_of, hs_of, ilk, tv_l1
 from scripts.image_preprocessing import get_img_spacing, reshape_img
 
 TARGET_D, TARGET_H, TARGET_W = 32, 128, 128
-
-
-@dataclass
-class FistaParamsList:
-    """FISTA parameters (list-valued fields generate a grid of combinations)"""
-
-    num_iter: list[int]
-    num_warp: list[int]
-    alpha: list[float]
-    beta: list[float]
-    eps: float
-    num_pyramid: int
-    pyramid_downscale: float
-    pyramid_min_size: int
-
-
-@dataclass
-class HSParamsList:
-    """Horn-Schunck parameters (list-valued fields generate a grid of combinations)"""
-
-    num_iter: list[int]
-    num_warp: list[int]
-    alpha: list[float]
-    eps: float
-    num_pyramid: int
-    pyramid_downscale: float
-    pyramid_min_size: int
-    w: float
-
-
-@dataclass
-class TVL1ParamsList:
-    """TV-L1 parameters (list-valued fields generate a grid of combinations)"""
-
-    attachment: list[float]
-    tightness: list[float]
-    num_warp: list[int]
-    num_iter: list[int]
-    tol: float
-    prefilter: bool
-
-
-@dataclass
-class ILKParamsList:
-    """ILK parameters (list-valued fields generate a grid of combinations)"""
-
-    radius: list[float]
-    num_warp: list[int]
-    gaussian: bool
-    prefilter: bool
-
-
-@dataclass
-class OpticalFlowParamsList:
-    """Optical Flow parameters"""
-
-    global_flow: bool
-    fista_list: FistaParamsList
-    hs_list: HSParamsList
-    tvl1_list: TVL1ParamsList
-    ilk_list: ILKParamsList
-
-
-def rmse(u: np.ndarray, h: np.ndarray) -> float:
-    """Root Mean Square Error between two vector fields of shape (d, *S)"""
-    return float(np.sqrt(np.mean((u - h) ** 2)))
 
 
 def save_results_to_csv(results: list[dict], csv_name: str, save_dir: Path) -> Path:
@@ -147,7 +63,7 @@ def build_combos(of_params) -> list:
 
 
 def process_case(
-    of_func,
+    of_func: callable,
     method_name: str,
     combos: list,
     folder_img_ugt: Path,
@@ -161,24 +77,13 @@ def process_case(
     evaluates the masked RMSE against the ground-truth displacement.
 
     Args:
-        of_func: One of fista_of / hs_of / tv_l1 / ilk.
+        of_func: Optical flow function
         method_name (str): Name of the optical flow method.
-        combos (list): Parameter combinations to test (see `build_combos`).
-        folder_img_ugt (Path): Folder containing the images (*_img.npy) and the
-                               ground-truth displacements (*_ugt.npy).
+        combos (list): Parameter combinations to test.
+        folder_img_ugt (Path): Folder containing the images and the ground-truth displacements.
         global_flow (bool): Global (0 -> t) or local (t -> t+1) flow.
-        native_grid (bool): Whether the images are on their native grid (e.g.
-                            dataset_3d: (2, 22, 150, 155)) and must be reshaped
-                            to the model grid, with the GT values rescaled
-                            (y: x128/150, x: x128/155). If False, the images are
-                            assumed already on the model grid with the GT in
-                            voxels (e.g. data/fractals).
-        image_name (str): If given, only processes the image whose filename
-                          contains this string. None processes every image.
-        default_spacing (tuple): Original voxel spacing (Z, Y, X) of the images,
-                                 before reshaping to the model grid. Passed to
-                                 `get_img_spacing`, which scales it to the model
-                                 grid before handing it to FISTA.
+        image_name (str): If given, only processes the image whose filename contains this string. None processes every image.
+        default_spacing (tuple): Default voxel spacing (Z, Y, X) if not in metadata. Defaults to None.
         save_dir (Path): Where to save the CSV results.
 
     Returns:
@@ -254,6 +159,20 @@ def main(
     image_name: str | None = None,
     default_spacing: tuple[float, float, float] = (1.0, 1.0, 1.0),
 ):
+    """
+    Main entry for fine-tuning
+
+    Args:
+        optical_flow_list (OpticalFlowParamsList): Parameters to test for different methods
+        folder_img_ugt (str): Folder containing the images and the ground-truth displacements
+        of_funcs (list[str]): List of optical flow functions.
+        save_dir (str, optional): Directory where the results should be solved. Defaults to "results/fine_tuning".
+        image_name (str | None, optional): If given, only processes the image whose filename contains this string. None processes every image.
+        default_spacing (tuple[float, float, float], optional): Default voxel spacing (Z, Y, X) if not in metadata. Defaults to (1.0, 0.13, 0.13).
+
+    Raises:
+        ValueError: If an unknown optical flow function is given.
+    """
     of_methods = {
         "fista": (fista_of, optical_flow_list.fista_list),
         "hs": (hs_of, optical_flow_list.hs_list),

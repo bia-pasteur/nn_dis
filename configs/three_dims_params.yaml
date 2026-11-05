@@ -1,0 +1,15 @@
+three_dims_simu:
+  img_paths: ['/Users/josephinelahmani/Desktop/data/Fluo-C3DH-A549-SIM/01/t000.tif', '/Users/josephinelahmani/Desktop/data/Fluo-C3DH-A549-SIM/01/t024.tif'] #, '/Users/josephinelahmani/Desktop/data/Fluo-C3DH-A549-SIM/01/t010.tif'] #['/Users/josephinelahmani/Desktop/data/Fluo-C3DH-A549-SIM/01/t000.tif']
+  masks_paths: ['/Users/josephinelahmani/Desktop/data/Fluo-C3DH-A549-SIM/01_ERR_SEG/mask000.tif', '/Users/josephinelahmani/Desktop/data/Fluo-C3DH-A549-SIM/01_ERR_SEG/mask024.tif'] #,, '/Users/josephinelahmani/Desktop/data/Fluo-C3DH-A549-SIM/01_ERR_SEG/mask010.tif'] #['/Users/josephinelahmani/Desktop/data/Fluo-C3DH-A549-SIM/01_ERR_SEG/mask000.tif']
+  spacing: [1.0, 0.13, 0.13]
+  t_end: 1
+  num_time_steps: 2
+  eta: 0
+  ym_for_nu: 300
+  nu_for_ym: 0.45
+  range_traction: [100, 300]
+  youngs_modulus: [300, 500]
+  nu: [0.45]
+  nb_zones_list: [2]
+  nb_seeds: 25
+  save_path: '/Users/josephinelahmani/Desktop/data/dataset_3d'

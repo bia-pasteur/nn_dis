@@ -10,4 +10,4 @@ computed_flows
 tests/
 *.npy
 data/
-output/
+output/s
