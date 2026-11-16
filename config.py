@@ -118,6 +118,7 @@ class TrainConfig:
     channel: int | None = None
     mask: bool = False
     path_gt: str | None = None
+    strain_param: float = 0.0
 
 
 @dataclass

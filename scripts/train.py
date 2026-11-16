@@ -258,7 +258,7 @@ def main(train_config: TrainConfig):
         train_config.alpha_param,
         train_config.beta_param,
         train_config.gt_param,
-        1.0,
+        train_config.strain_param,
     ]
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
 
