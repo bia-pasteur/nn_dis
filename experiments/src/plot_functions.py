@@ -23,12 +23,14 @@ def plot_losses(
         init_epoch (int, optional): Epoch to start the visualization at. Defaults to 0.
     """
     train_logs = (
-        pd.read_csv(f"{folder}/logs_train.csv")
+        pd
+        .read_csv(f"{folder}/logs_train.csv")
         .iloc[init_epoch + 1 :]
         .reset_index(drop=True)
     )
     val_logs = (
-        pd.read_csv(f"{folder}/logs_validation.csv")
+        pd
+        .read_csv(f"{folder}/logs_validation.csv")
         .iloc[init_epoch:]
         .reset_index(drop=True)
     )
@@ -207,21 +209,19 @@ def plot_features_shape(
     ax_right.set_yticklabels(["1/16", "1/8", "1/4", "1/2", "1"])
 
     ax_left.set_xticks(steps)
-    ax_left.set_xticklabels(
-        [
-            "Enc. 1",
-            "Enc. 2",
-            "Enc. 3",
-            "Enc. 4",
-            "",
-            "Bottleneck",
-            "",
-            "Dec. 1",
-            "Dec. 2",
-            "Dec. 3",
-            "Dec. 4",
-        ]
-    )
+    ax_left.set_xticklabels([
+        "Enc. 1",
+        "Enc. 2",
+        "Enc. 3",
+        "Enc. 4",
+        "",
+        "Bottleneck",
+        "",
+        "Dec. 1",
+        "Dec. 2",
+        "Dec. 3",
+        "Dec. 4",
+    ])
     ax_left.set_xlabel("Network stage")
 
     ax_left.axvline(5, color="gray", linestyle=":", alpha=0.6)

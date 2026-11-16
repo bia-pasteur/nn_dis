@@ -2,7 +2,8 @@
 # pylint: disable=line-too-long
 # pylint: disable=trailing-whitespace
 
-from typing import Any, Sequence, Union
+from collections.abc import Sequence
+from typing import Any
 
 import numpy as np
 from scipy.ndimage import distance_transform_edt
@@ -12,18 +13,18 @@ from scipy.signal import unit_impulse
 def parse_spacing(
     f_shape: tuple[int, ...],
     axes: tuple[int, ...],
-    *varargs: Union[float, Sequence[float], np.ndarray],
-) -> list[Union[float, np.ndarray]]:
+    *varargs: float | Sequence[float] | np.ndarray,
+) -> list[float | np.ndarray]:
     """
     Parse spacing arguments for gradient calculation.
 
-    This function mimics the behavior of `np.gradient` when handling
+    This function mimics the behavior of np.gradient when handling
     scalar and array-like spacing arguments, ensuring proper broadcasting
     for each axis.
 
     Args:
         f_shape (tuple of int):
-            Shape of the input array `f`.
+            Shape of the input array f.
         axes (tuple of int):
             Axes along which the gradient will be computed.
         *varargs (float | np.ndarray | Sequence):
@@ -113,17 +114,17 @@ def apply_neumann_bc(
 def grad_domain(
     f: np.ndarray,
     mask: np.ndarray,
-    *varargs: Union[float, Sequence[float], np.ndarray],
+    *varargs: float | Sequence[float] | np.ndarray,
     axis: Any = None,
     boundary_condition: str = "Neumann",
 ) -> np.ndarray:
     """
-    Computes the masked gradient of an N-dimensional array `f`
+    Computes the masked gradient of an N-dimensional array f
     with support for Neumann or Dirichlet boundary conditions.
 
     Args:
         f (np.ndarray): The input N-dimensional array.
-        mask (np.ndarray): Binary mask (same shape as `f`).
+        mask (np.ndarray): Binary mask (same shape as f).
         *varargs (float | Sequence[float] | np.ndarray): Spacing.
         axis (int | Sequence[int] | None): Axes along which gradient is computed.
         boundary_condition (str): 'Neumann' or 'Dirichlet'.

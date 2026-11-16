@@ -6,10 +6,10 @@
 import os
 import re
 import time
+from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
 from pathlib import Path
-from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -84,9 +84,9 @@ def get_img_dis_model(
     )
     dis_model = np.transpose(dis_model, (1, 0, 2, 3, 4))
     mask = img[0] > 0.1
-    dis_model_masked = np.stack(
-        [dis_model[i] * mask for i in range(dis_model.shape[0])]
-    )
+    dis_model_masked = np.stack([
+        dis_model[i] * mask for i in range(dis_model.shape[0])
+    ])
 
     return img, spacing, mask, dis_model, warped_model, dis_model_masked
 
@@ -349,13 +349,11 @@ def _compute_mean_stds_values(
     if group_members is not None:
         for metric, metric_key in _RMSE_METRIC_KEYS.items():
             seed_means = [
-                np.mean(
-                    [
-                        res[metric_key][member]
-                        for nb, res in results.items()
-                        if isinstance(nb, int) and res
-                    ]
-                )
+                np.mean([
+                    res[metric_key][member]
+                    for nb, res in results.items()
+                    if isinstance(nb, int) and res
+                ])
                 for member in group_members
             ]
             results.setdefault(f"std_seeds_rmse_{metric}", {})[method_name] = np.std(
@@ -461,14 +459,9 @@ def _compute_rmse_vs_noise(results: dict) -> dict:
         if not any(metric_key in res for res in per_image_results):
             continue
 
-        methods = sorted(
-            {
-                m
-                for res in per_image_results
-                if metric_key in res
-                for m in res[metric_key]
-            }
-        )
+        methods = sorted({
+            m for res in per_image_results if metric_key in res for m in res[metric_key]
+        })
 
         results[f"mean_rmse_{metric_name}_vs_noise"] = {}
         results[f"std_rmse_{metric_name}_vs_noise"] = {}
@@ -628,9 +621,7 @@ def _process_image(
 
     for model_name, model_folder in model_folders.items():
         start_time = time.time()
-        img, spacing, mask, h_model, warped_model, h_model_masked = get_img_dis_model(
-            path_img, model_folder
-        )
+        img, spacing, mask, h_model, _, _ = get_img_dis_model(path_img, model_folder)
         time_model = time.time() - start_time
 
         if results_im is None:

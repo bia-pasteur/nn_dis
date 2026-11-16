@@ -53,6 +53,7 @@ def epoch_(
     grad_loss_fn: nn.Module,
     hessian_loss_fn: nn.Module,
     gt_loss_fn: nn.Module,
+    strain_loss_fn: nn.Module,
     loss_weights: list[float],
     device: str = "cuda",
     training: bool = True,
@@ -89,6 +90,7 @@ def epoch_(
         "loss_grad": [],
         "loss_hess": [],
         "loss_gt": [],
+        "loss_strain": [],
         "max_dis": [],
         "avg_dis": [],
     }
@@ -127,12 +129,14 @@ def epoch_(
         gt_loss = gt_loss_fn(
             pred=displacement, target=u_gt, mask=mask_gt, spacing=spacing
         )
+        strain_loss = strain_loss_fn(pred=displacement, target=u_gt, mask=mask_gt)
 
         loss = (
             loss_weights[0] * img_loss
             + loss_weights[1] * grad_loss
             + loss_weights[2] * hessian_loss
             + loss_weights[3] * gt_loss
+            + loss_weights[4] * strain_loss
         )
 
         if training:
@@ -145,6 +149,7 @@ def epoch_(
         log["loss_grad"].append(grad_loss.item())
         log["loss_hess"].append(hessian_loss.item())
         log["loss_gt"].append(gt_loss.item())
+        log["loss_strain"].append(strain_loss.item())
         log["max_dis"].append(np.max(np.abs(displacement.detach().cpu().numpy())))
         log["avg_dis"].append(np.mean(displacement.detach().cpu().numpy()))
 
@@ -246,12 +251,14 @@ def main(train_config: TrainConfig):
     grad_loss_fn = network.losses.SpatialGradient("l2")
     hessian_loss_fn = network.losses.SpatialHessian("l2")
     gt_loss_fn = network.losses.GT_comp()
+    strain_loss_fn = network.losses.StrainComp()
 
     loss_weights = [
         train_config.warp_param,
         train_config.alpha_param,
         train_config.beta_param,
         train_config.gt_param,
+        1.0,
     ]
     optimizer = torch.optim.Adam(model.parameters(), lr=train_config.lr)
 
@@ -313,6 +320,7 @@ def main(train_config: TrainConfig):
             grad_loss_fn=grad_loss_fn,
             hessian_loss_fn=hessian_loss_fn,
             gt_loss_fn=gt_loss_fn,
+            strain_loss_fn=strain_loss_fn,
             loss_weights=loss_weights,
             device=device,
             training=True,
@@ -328,6 +336,7 @@ def main(train_config: TrainConfig):
                 grad_loss_fn=grad_loss_fn,
                 hessian_loss_fn=hessian_loss_fn,
                 gt_loss_fn=gt_loss_fn,
+                strain_loss_fn=strain_loss_fn,
                 loss_weights=loss_weights,
                 device=device,
                 training=False,
