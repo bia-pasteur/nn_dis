@@ -1,5 +1,7 @@
 """Build PyTorch datasets of paired microscopy volumes with ground-truth flow."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import numpy as np
