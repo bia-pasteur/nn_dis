@@ -308,7 +308,7 @@ def main(train_config: TrainConfig):
             decay=train_config.gt_decay,
             start_epoch=train_config.gt_decay_start_epoch,
             end_epoch=train_config.gt_decay_end_epoch,
-            final_weight=train_config.gt_decay_final or 0.0,
+            final_weight=0.0,
         )
         loss_weights[3] = current_gt_weight
 
