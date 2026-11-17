@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 from scripts.image_preprocessing import get_img_spacing, get_max_depths, get_ugt
 
 
-def get_spatial_transforms() -> tio.Transforms:
+def get_spatial_transforms() -> tio.Transform:
     """
     Obtain 3D spatial transformations (flips on each axis)
 
@@ -82,8 +82,8 @@ class TractionDataset(Dataset):
     def __init__(
         self,
         folder: Path,
-        spatial_transforms: callable = None,
-        intensity_transforms: callable = None,
+        spatial_transforms: callable | None = None,
+        intensity_transforms: callable | None = None,
         channel: str | None = None,
         mask: bool | None = False,
         path_gt: str | None = None,
@@ -100,13 +100,11 @@ class TractionDataset(Dataset):
             path_gt (str | None, optional): Path to the ground-truth displacement fields. Required as loading fails without it. Defaults to None.
             default_spacing (tuple[float, float, float] | None, optional): Spacing (z, y, x) to use when unavailable within the file. Defaults to (4.0, 1.0, 1.0).
         """
-        self.files = sorted(
-            [
-                *folder.glob("*.tiff"),
-                *folder.glob("*.tif"),
-                *folder.glob("*.npy"),
-            ]
-        )
+        self.files = sorted([
+            *folder.glob("*.tiff"),
+            *folder.glob("*.tif"),
+            *folder.glob("*.npy"),
+        ])
         self.folder = folder
         self.channel = channel
         self.mask = mask
